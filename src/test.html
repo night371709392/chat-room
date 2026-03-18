@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>页面练习</title>
+  <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+    body {
+      background: linear-gradient(135deg, #4E60FF 0%, #6C7DF7 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .card {
+      width: 380px;
+      max-width: 100%;
+      background-color: #ffffff;
+      padding: 32px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 24px;
+      color: #1D2129;
+      margin-bottom: 32px;
+    }
+    input {
+      width: 100%;
+      height: 48px;
+      border: 1px solid #E5E6EB;
+      border-radius: 24px;
+      padding: 0 20px;
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+    input:focus {
+      border-color: #4E60FF;
+    }
+    .message {
+      margin: 8px 0 24px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .message .left {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    .message input {
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+    .message span {
+      color: #4E5969;
+      user-select: none;
+    }
+    .message a {
+      font-size: 14px;
+      color: #4E60FF;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>登录</h1>
+    <input type="text" placeholder="手机/邮箱" class="account" maxlength="20">
+    <input type="password" placeholder="密码" class="password">
+    <div class="message">
+      <div class="left">
+        <input type="checkbox">
+        <span>下次自动登录</span>
+      </div>
+      <div class="right">
+        <a href="">忘记密码</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

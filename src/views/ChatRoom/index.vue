@@ -2,15 +2,19 @@
   <div class="chatroom">
     <Nav></Nav>
     <router-view></router-view>
+    <Popup></Popup>
   </div>
 </template>
 
 <script>
 import Nav from '@/components/Nav.vue'
+import Popup from '@/components/Popup.vue'
+
 export default {
     name: 'ChatRoom',
     components: {
-        Nav
+        Nav,
+        Popup
     }
 }
 </script>

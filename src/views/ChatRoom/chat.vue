@@ -7,7 +7,7 @@
       <div class="message">
         <div class="item1">
           <div class="head-image">
-            <img src="@/assets/img/ChatRoom/notice.jpeg" alt="">
+            <img src="@/assets/img/ChatRoom/notice.png" alt="">
           </div>
           <div class="right">
             <div class="name-text">

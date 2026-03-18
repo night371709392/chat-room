@@ -45,8 +45,21 @@ export default {
     }
   },
   methods: {
+    // 校验邮箱
+    validateEmail () {
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(this.email)) {
+        this.$toast("请输入正确的邮箱号码")
+        return false
+      }
+      return true
+    },
+
     // 获取邮箱验证码
     getCode () {
+      if (!this.validateEmail()) {
+        return
+      }
+
       // 当前没有定时器，且 totalSecond 和 second 一致时才可以倒计时
       if (this.timer === null && this.second === this.totalSecond) {
         this.timer = setInterval(() => {
@@ -65,10 +78,10 @@ export default {
           email: this.email
         }
       }).then(res => {
+        Toast("验证码已发送至您的邮箱，请注意查收")
         console.log(res)
       })
-      Toast("验证码已发送至您的邮箱，请注意查收")
-    }
+    },
   },
   // 离开页面，清除定时器
   destroyed () {

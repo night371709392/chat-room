@@ -5,7 +5,7 @@
         <div class="ipt">
           <input type="text" placeholder="搜索">
         </div>
-        <button><i class="iconfont icon-jiahao"></i></button>
+        <button @click="openPage"><i class="iconfont icon-jiahao"></i></button>
       </div>
       <div class="top-item">
         <div class="head-image">
@@ -21,11 +21,16 @@
 
 <script>
 export default {
-  name: 'FriendPage'
+  name: 'FriendPage',
+  methods: {
+    openPage () {
+      this.$store.commit('openAddFriendPage')
+    }
+  }
 }
 </script>
 
-<style>
+<style scoped>
 * {
   margin: 0;
   padding: 0;

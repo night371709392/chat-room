@@ -2,19 +2,22 @@
   <div class="chatroom">
     <Nav></Nav>
     <router-view></router-view>
-    <Popup></Popup>
+    <AddFriend v-show="$store.state.addFriendPage"></AddFriend>
+    <CreateGroup v-show="$store.state.createGroupPage"></CreateGroup>
   </div>
 </template>
 
 <script>
 import Nav from '@/components/Nav.vue'
-import Popup from '@/components/Popup.vue'
+import AddFriend from '@/components/AddFriend.vue'
+import CreateGroup from '@/components/CreateGroup.vue'
 
 export default {
     name: 'ChatRoom',
     components: {
         Nav,
-        Popup
+        AddFriend,
+        CreateGroup
     }
 }
 </script>

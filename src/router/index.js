@@ -1,6 +1,5 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
-
 import Login from '../components/Login.vue'
 import Regist from '../views/Register/index.vue'
 import UsernameRegist from '@/views/Register/Username.vue'
@@ -20,42 +19,58 @@ import Password from '@/views/Setting/password.vue'
 Vue.use(VueRouter)
 
 const router = new VueRouter({
-    routes: [
-        { path: '/', redirect: '/login' },
-        { path: '/login' , component: Login },
-        { 
-            path: '/regist', 
-            component: Regist,
-            children: [
-                { path: '', redirect: 'username' },
-                { path: 'username', component: UsernameRegist },
-                { path: 'phone', component: PhoneRegist },
-                { path: 'email', component: EmailRegist }
-            ]
+  routes: [
+    { path: '/', redirect: '/login' },
+    { path: '/login', component: Login },
+    { 
+      path: '/regist', 
+      component: Regist,
+      children: [
+        { path: '', redirect: 'username' },
+        { path: 'username', component: UsernameRegist },
+        { path: 'phone', component: PhoneRegist },
+        { path: 'email', component: EmailRegist }
+      ]
+    },
+    {   
+      path: '/chathome', 
+      component: ChatRoom,
+      children: [
+        { path: '', redirect: 'chat' },
+        { path: 'chat', components: { main: ChatContent } },
+        { path: 'friend', components: { main: Friend } },
+        { path: 'group', components: { main: Group } },
+        
+        { path: 'setting', components: { main: Setting } },
+        
+        { path: 'setting/information', components: { 
+            main: Setting,
+            setting: Information
+          }
         },
-        {   
-            path: '/chathome', 
-            component: ChatRoom,
-            children: [
-                { path: '', redirect: 'chat' },
-                { path: 'chat', component: ChatContent },
-                { path: 'friend', component: Friend },
-                { path: 'group', component: Group },
-                { 
-                    path: 'setting',
-                    component: Setting,
-                    children: [
-                        { path: '', redirect: 'information' },
-                        { path: 'information', component: Information },
-                        { path: 'user', component: User },
-                        { path: 'phone', component: Phone },
-                        { path: 'email', component: Email },
-                        { path: 'password', component: Password }
-                    ]
-                }
-            ]
+        { path: 'setting/phone', components: { 
+            main: Setting,
+            setting: Phone 
+          } 
+        },
+        { path: 'setting/email', components: { 
+            main: Setting,
+            setting: Email 
+          } 
+        },
+        { path: 'setting/password', components: { 
+            main: Setting,
+            setting: Password 
+          } 
+        },
+        { path: 'setting/user', components: { 
+            main: Setting,
+            setting: User 
+          } 
         }
-    ]
+      ]
+    }
+  ]
 })
 
 export default router

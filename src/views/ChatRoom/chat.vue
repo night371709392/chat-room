@@ -14,7 +14,7 @@
               <p>系统通知</p>
               <span>01/29</span>
             </div>
-            <div class="content-text">"同城约app"是勒索骗局，请勿上当！</div>
+            <div class="content-text">"同城约app"是勒索骗局，请勿上当受骗！</div>
           </div>
         </div>
       </div>

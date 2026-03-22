@@ -2,23 +2,23 @@
   <div class="setting">
     <div>
       <i class="iconfont icon-moban"></i>
-      <router-link to="/setting/information">个人资料</router-link>
+      <router-link to="/chathome/setting/information" class="setting-link" exact>个人资料</router-link>
     </div>
     <div>
       <i class="iconfont icon-shezhi"></i>
-      <router-link to="/setting/user">用户设置</router-link>
+      <router-link to="/chathome/setting/user" class="setting-link" exact>用户设置</router-link>
     </div>
     <div>
       <i class="iconfont icon-shouji"></i>
-      <router-link to="/setting/phone">绑定手机</router-link>
+      <router-link to="/chathome/setting/phone" class="setting-link" exact>绑定手机</router-link>
     </div>
     <div>
       <i class="iconfont icon-youxiang"></i>
-      <router-link to="/setting/email">绑定邮箱</router-link>
+      <router-link to="/chathome/setting/email" class="setting-link" exact>绑定邮箱</router-link>
     </div>
     <div>
       <i class="iconfont icon-mima"></i>
-      <router-link to="/setting/password">修改密码</router-link>
+      <router-link to="/chathome/setting/password" class="setting-link" exact>修改密码</router-link>
     </div>
   </div>
 </template>
@@ -36,9 +36,9 @@ export default {
   box-sizing: border-box;
 }
 .iconfont {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
   color: skyblue;
 }
 .setting {
@@ -58,7 +58,13 @@ export default {
   margin: 2px 0;
   gap: 12px;
 }
-.setting div:focus {
-  background-color: #EAEAFB;
+.setting-link {
+  text-decoration: none;
+  color: #333;
+  font-size: 16px;
+}
+.setting-link.router-link-exact-active {
+  color: #409eff;
+  font-weight: 600;
 }
 </style>

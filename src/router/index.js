@@ -11,6 +11,11 @@ import ChatContent from '@/views/ChatRoom/chat.vue'
 import Friend from '@/views/ChatRoom/friend.vue'
 import Group from '@/views/ChatRoom/group.vue'
 import Setting from '@/views/ChatRoom/setting.vue'
+import Information from '@/views/Setting/information.vue'
+import User from '@/views/Setting/user.vue'
+import Phone from '@/views/Setting/phone.vue'
+import Email from '@/views/Setting/email.vue'
+import Password from '@/views/Setting/password.vue'
 
 Vue.use(VueRouter)
 
@@ -36,7 +41,18 @@ const router = new VueRouter({
                 { path: 'chat', component: ChatContent },
                 { path: 'friend', component: Friend },
                 { path: 'group', component: Group },
-                { path: 'setting', component: Setting}
+                { 
+                    path: 'setting',
+                    component: Setting,
+                    children: [
+                        { path: '', redirect: 'information' },
+                        { path: 'information', component: Information },
+                        { path: 'user', component: User },
+                        { path: 'phone', component: Phone },
+                        { path: 'email', component: Email },
+                        { path: 'password', component: Password }
+                    ]
+                }
             ]
         }
     ]

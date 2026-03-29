@@ -12,11 +12,6 @@
     </div>
     
     <div class="input-group">
-      <input type="text" placeholder="用户名" maxlength="20">
-      <span class="word-count">0/20</span>
-    </div>
-    
-    <div class="input-group">
       <input type="password" placeholder="密码" v-model="password">
     </div>
     
@@ -24,12 +19,12 @@
       <input type="password" placeholder="确认密码" v-model="re_password">
     </div>
     
-    <button class="register-btn">注册</button>
+    <button class="register-btn" @click="handleRegist">注册</button>
   </div>
 </template>
 
 <script>
-import { Toast } from 'vant';
+import { Toast } from 'vant'
 
 export default {
   name: 'EmailRegist',
@@ -47,8 +42,51 @@ export default {
   methods: {
     // 校验邮箱
     validateEmail () {
+      if (!this.email.trim()) {
+        Toast("请输入邮箱地址")
+        return false
+      }
       if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(this.email)) {
-        this.$toast("请输入正确的邮箱号码")
+        Toast("请输入正确的邮箱号码")
+        return false
+      }
+      return true
+    },
+
+    // 校验验证码
+    validateCode () {
+      if (!this.code.trim()) {
+        Toast("请输入验证码")
+        return false
+      }
+      if (!/^\d{6}$/.test(this.code)) {
+        Toast("请输入6位数字的验证码")
+        return false
+      }
+      return true
+    },
+
+    // 校验密码
+    validatePassword () {
+      if (!this.password.trim()) {
+        Toast("请输入密码")
+        return false
+      }
+      if (!/^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/.test(this.password)) {
+        Toast("密码需为8-20位，包含字母和数字")
+        return false
+      }
+      return true
+    },
+
+    // 校验确认密码
+    validateRePassword () {
+      if (!this.re_password.trim()) {
+        Toast("请确认密码")
+        return false
+      }
+      if (this.re_password !== this.password) {
+        Toast("两次输入的密码不一致")
         return false
       }
       return true
@@ -82,6 +120,15 @@ export default {
         console.log(res)
       })
     },
+
+    handleRegist () {
+      if (!this.validateEmail()) return
+      if (!this.validateCode()) return
+      if (!this.validatePassword()) return
+      if (!this.validateRePassword()) return
+      this.$router.push('/login')
+    }
+
   },
   // 离开页面，清除定时器
   destroyed () {
@@ -167,7 +214,7 @@ export default {
   border-radius: 22px;
   font-size: 16px;
   cursor: pointer;
-  margin: 20px 0 10px;
+  margin: 0 0 10px;
 }
 
 .register-btn:hover {

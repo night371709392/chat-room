@@ -4,10 +4,10 @@
       <h2>登录</h2>
 
       <div class="input-group">
-        <input type="text" placeholder="用户名">
+        <input type="text" placeholder="邮箱号码" v-model="email">
       </div>
       <div class="input-group">
-        <input type="password" placeholder="密码">
+        <input type="password" placeholder="密码" v-model="password">
       </div>
 
       <div class="form-row">
@@ -18,6 +18,7 @@
         <a href="#" class="link">忘记密码</a>
       </div>
 
+      <!-- 将token保存在浏览器的本地存储，将JWT放在请求的头部Authorization字段中 -->
       <button class="login-btn" @click="handleLogin">登录</button>
 
       <button class="scan-btn">扫码登录</button>
@@ -30,10 +31,46 @@
 </template>
 
 <script>
+import { Toast } from 'vant'
+
 export default {
   name: 'LoginPage',
+  data () {
+    return {
+      email: '',
+      password: ''
+    }
+  },
   methods: {
+    // 校验邮箱
+    validateEmail () {
+      if (!this.email.trim()) {
+        Toast("请输入邮箱地址")
+        return false
+      }
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(this.email)) {
+        Toast("请输入正确的邮箱号码")
+        return false
+      }
+      return true
+    },
+
+    // 校验密码
+    validatePassword () {
+      if (!this.password.trim()) {
+        Toast("请输入密码")
+        return false
+      }
+      if (!/^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/.test(this.password)) {
+        Toast("密码需为8-20位，包含字母和数字")
+        return false
+      }
+      return true
+    },
+
     handleLogin () {
+      if (!this.validateEmail()) return
+      if (!this.validatePassword()) return
       this.$router.push('/chathome')
     }
   }

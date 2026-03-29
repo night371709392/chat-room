@@ -65,7 +65,7 @@ export default {
   border-radius: 22px;
   font-size: 16px;
   cursor: pointer;
-  margin: 20px 0 10px;
+  margin: 0 0 10px;
 }
 
 .register-btn:hover {

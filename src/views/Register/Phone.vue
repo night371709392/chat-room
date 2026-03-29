@@ -12,11 +12,6 @@
     </div>
     
     <div class="input-group">
-      <input type="text" placeholder="用户名" maxlength="20">
-      <span class="word-count">0/20</span>
-    </div>
-    
-    <div class="input-group">
       <input type="password" placeholder="密码">
     </div>
     
@@ -103,7 +98,7 @@ export default {
   border-radius: 22px;
   font-size: 16px;
   cursor: pointer;
-  margin: 20px 0 10px;
+  margin: 0 0 10px;
 }
 
 .register-btn:hover {

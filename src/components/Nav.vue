@@ -11,7 +11,7 @@
     </div>
     <div class="nav-footer">
         <ul>
-            <li title="退出登录"><a href=""><i class="iconfont icon-tuichu"></i></a></li>
+            <li title="退出登录" @click="logout"><a href=""><i class="iconfont icon-tuichu"></i></a></li>
         </ul>
     </div>
   </div>
@@ -19,7 +19,12 @@
 
 <script>
 export default {
-    name: 'NavPage'
+    name: 'NavPage',
+    methods: {
+      logout () {
+        sessionStorage.removeItem('token')
+      }
+    }
 }
 </script>
 

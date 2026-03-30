@@ -6,7 +6,7 @@
     
     <div class="input-group verification">
       <input type="text" placeholder="邮件验证码" v-model="code">
-      <button class="get-code" @click="getCode">
+      <button class="get-code" @click="getCode" :disabled="second !== totalSecond">
         {{ second === totalSecond ? '获取验证码' : second + '秒后重新发送' }}
       </button>
     </div>
@@ -34,8 +34,8 @@ export default {
       code: '',
       password: '',
       re_password: '',
-      totalSecond: 10, // 总秒数
-      second: 10, // 当前秒数，开定时器对 second--
+      totalSecond: 60, // 总秒数
+      second: 60, // 当前秒数，开定时器对 second--
       timer: null // 定时器id
     }
   },
@@ -46,7 +46,7 @@ export default {
         Toast("请输入邮箱地址")
         return false
       }
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(this.email)) {
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|vip|xyz|top|gov|edu|hk|tw|jp|kr|uk|us|co\.[a-z]{2})$/i.test(this.email)) {
         Toast("请输入正确的邮箱号码")
         return false
       }
@@ -94,21 +94,25 @@ export default {
 
     // 获取邮箱验证码
     getCode () {
+      // 1. 先校验邮箱
       if (!this.validateEmail()) {
         return
       }
 
-      // 当前没有定时器，且 totalSecond 和 second 一致时才可以倒计时
-      if (this.timer === null && this.second === this.totalSecond) {
-        this.timer = setInterval(() => {
-          this.second--
-          if (this.second <= 0) {
-            clearInterval(this.timer)
-            this.timer = null
-            this.second = this.totalSecond
-          }
-        }, 1000)
+      // 2. 正在倒计时，禁止重复点击
+      if (this.timer !== null || this.second !== this.totalSecond) {
+        Toast('请稍后再获取验证码')
+        return
       }
+
+      // 3. 先加载提示，提升体验
+      Toast.loading({
+        message: '发送中...',
+        forbidClick: true,
+        duration: 0
+      })
+
+      // 4. 先发送请求 → 成功后再开启倒计时
       this.$axios({
         url: '/api/email/send',
         method: 'post',
@@ -116,23 +120,68 @@ export default {
           email: this.email
         }
       }).then(res => {
-        Toast("验证码已发送至您的邮箱，请注意查收")
-        console.log(res)
+        // 关闭loading
+        Toast.clear()
+
+        if (res.data === "success") {
+          Toast("验证码已发送至您的邮箱，请注意查收")
+      
+          // ✅ 接口成功后，才开启倒计时
+          this.startTimer()
+        }
+        else {
+          Toast(res.data)
+        }
+      }).catch(() => {
+        Toast.clear()
+        Toast('发送失败，请重试')
       })
     },
 
+    // 新增：单独封装倒计时方法
+    startTimer() {
+      this.timer = setInterval(() => {
+        this.second--
+        if (this.second <= 0) {
+          clearInterval(this.timer)
+          this.timer = null
+          this.second = this.totalSecond
+        }
+      }, 1000)
+    },
+
+    // 注册
     handleRegist () {
       if (!this.validateEmail()) return
       if (!this.validateCode()) return
       if (!this.validatePassword()) return
       if (!this.validateRePassword()) return
-      this.$router.push('/login')
-    }
 
+      this.$axios({
+        url: '/api/user/register',
+        method: 'post',
+        data: {
+          code: this.code,
+          email: this.email,
+          password: this.password,
+          re_password: this.re_password
+        }
+      }).then(res => {
+        if (res.data === "success") {
+          Toast("注册成功")
+          this.$router.push('/login')
+        }
+        else {
+          Toast(res.data)
+          return
+        }
+      })
+    }
   },
   // 离开页面，清除定时器
   destroyed () {
-    clearInterval(this.timer) 
+    clearInterval(this.timer)
+    this.timer = null
   }
 }
 </script>

@@ -6,29 +6,153 @@
         <h4>修改密码</h4>
       </div>
       <div class="form">
-        <div class="old">
-          <span>原密码</span>
-          <input type="text" placeholder="">
+        <div class="code">
+          <span>验证码</span>
+          <input type="text" placeholder="邮件验证码" v-model="code">
+          <button class="get-code" @click="getCode" :disabled="second !== totalSecond">
+            {{ second === totalSecond ? '获取验证码' : second + '秒后重新发送' }}
+          </button>
         </div>
         <div class="new">
           <span>新密码</span>
-          <input type="text" placeholder="">
-        </div>
-        <div class="sure">
-          <span>确认密码</span>
-          <input type="text" placeholder="">
+          <input type="password" placeholder="" v-model="new_password">
         </div>
       </div>
       <div class="btn">
-        <button>提交</button>
+        <button @click="alterPassword">提交</button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { Toast, Dialog } from 'vant'
+
 export default {
-  name: 'PasswordPage'
+  name: 'PasswordPage',
+  data () {
+    return {
+      code: '',
+      new_password: '',
+      totalSecond: 60, // 总秒数
+      second: 60, // 当前秒数，开定时器对 second--
+      timer: null // 定时器id
+    }
+  },
+  methods: {
+    // 校验验证码
+    validateCode () {
+      if (!this.code.trim()) {
+        Toast("请输入验证码")
+        return false
+      }
+      if (!/^\d{6}$/.test(this.code)) {
+        Toast("请输入6位数字的验证码")
+        return false
+      }
+      return true
+    },
+
+    // 校验密码
+    validatePassword () {
+      if (!this.new_password.trim()) {
+        Toast("请输入密码")
+        return false
+      }
+      if (!/^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/.test(this.new_password)) {
+        Toast("密码需为8-20位，包含字母和数字")
+        return false
+      }
+      return true
+    },
+
+    // 获取邮箱验证码
+    getCode () {
+      // 正在倒计时，禁止重复点击
+      if (this.timer !== null || this.second !== this.totalSecond) {
+        Toast('请稍后再获取验证码')
+        return
+      }
+
+      // 先加载提示，提升体验
+      Toast.loading({
+        message: '发送中...',
+        forbidClick: true,
+        duration: 0
+      })
+
+      // 先发送请求 → 成功后再开启倒计时
+      this.$axios({
+        url: '/api/user/pwd/code/send',
+        method: 'post',
+      }).then(res => {
+        Toast.clear()
+
+        if (res.data === "success") {
+          Toast("验证码已发送至您的邮箱，请注意查收")
+      
+          // ✅ 接口成功后，才开启倒计时
+          this.startTimer()
+        }
+        else {
+          Toast(res.data)
+        }
+        console.log(res)
+      }).catch(() => {
+        Toast.clear()
+        Toast('发送失败，请重试')
+      })
+    },
+
+    // 新增：单独封装倒计时方法
+    startTimer () {
+      this.timer = setInterval(() => {
+        this.second--
+        if (this.second <= 0) {
+          clearInterval(this.timer)
+          this.timer = null
+          this.second = this.totalSecond
+        }
+      }, 1000)
+    },
+
+    // 修改密码
+    alterPassword () {
+      if (!this.validateCode()) return
+      if (!this.validatePassword()) return
+
+      Dialog.confirm({
+        title: '修改密码',
+        message: '确认修改密码？',
+      }).then(() => {
+        this.$axios({
+          url: '/api/user/update/pwd',
+          method: 'put',
+          data: {
+            code: this.code,
+            new_password: this.new_password
+          }
+        }).then(res => {
+          if (res.data === "success") {
+            alert("密码修改成功，请重新登录")
+            sessionStorage.removeItem("token")
+            this.$router.push("/login")
+          }
+          else {
+            Toast(res.data)
+            return
+          }
+        })
+      }).catch(() => {
+        return
+      })
+    }
+  },
+  // 离开页面，清除定时器
+  destroyed () {
+    clearInterval(this.timer)
+    this.timer = null
+  }
 }
 </script>
 
@@ -88,6 +212,21 @@ export default {
 }
 .password .word .form input:focus {
   border-color: #2830D3;
+}
+.get-code {
+  width: 120px;
+  height: 32px;
+  background: #f0f2f5;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  font-size: 13px;
+  color: #4e60ff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.get-code:disabled {
+  color: #999;
+  cursor: not-allowed;
 }
 .password .word .btn {
   margin-top: 20px;

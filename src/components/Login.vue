@@ -24,7 +24,8 @@
       <button class="scan-btn">扫码登录</button>
 
       <div class="register-link">
-        没有账号? <router-link to="/regist">注册账号</router-link>
+        没有账号? 
+        <router-link to="/regist">注册账号</router-link>
       </div>
     </div>
   </div>
@@ -48,7 +49,7 @@ export default {
         Toast("请输入邮箱地址")
         return false
       }
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(this.email)) {
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|vip|xyz|top|gov|edu|hk|tw|jp|kr|uk|us|co\.[a-z]{2})$/i.test(this.email)) {
         Toast("请输入正确的邮箱号码")
         return false
       }
@@ -71,7 +72,25 @@ export default {
     handleLogin () {
       if (!this.validateEmail()) return
       if (!this.validatePassword()) return
-      this.$router.push('/chathome')
+
+      this.$axios({
+        url: '/api/user/login',
+        method: 'post',
+        data: {
+          email: this.email,
+          password: this.password
+        }
+      }).then(res => {
+        if (res.data.msg === "success") {
+          sessionStorage.setItem('token', res.data.token)
+          Toast("登录成功")
+          this.$router.push('/chathome')
+        }
+        else {
+          Toast(res.data.msg || '登录失败')
+          return
+        }
+      })
     }
   }
 }

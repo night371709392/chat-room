@@ -14,6 +14,33 @@ Vue.use(Popup)
 Vue.use(Cell)
 Vue.use(Switch)
 
+
+// 请求拦截器：统一加 JWT
+axios.interceptors.request.use(config => {
+  const token = sessionStorage.getItem('token')
+  
+  if (token && token.trim()) {
+    // 标准 JWT 格式
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  return config
+})
+
+// 响应拦截器：处理 token 过期
+axios.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response && err.response.status === 401) {
+      // 登录过期
+      sessionStorage.removeItem('token')
+      Toast('登录已过期，请重新登录')
+      router.push('/login')
+    }
+    return Promise.reject(err)
+  }
+)
+
 Vue.prototype.$axios = axios
 Vue.config.productionTip = false
 

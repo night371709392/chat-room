@@ -5,7 +5,8 @@
         <input type="text" placeholder="搜索">
       </div>
       <div class="message">
-        <div class="item1">
+        <!-- 系统通知 -->
+        <div class="item" @click="switchToNotice" :class="{ active: activeChatType === 'notice' }">
           <div class="head-image">
             <img src="@/assets/img/ChatRoom/notice.png" alt="">
           </div>
@@ -17,6 +18,19 @@
             <div class="content-text">"同城约app"是勒索骗局，请勿上当受骗！</div>
           </div>
         </div>
+        <!-- 好友 -->
+        <div class="item" @click="switchToFriendChat(friendInfo)" :class="{ active: activeChatType === 'friend' && currentFriend?.name === '羽烬缘' }">
+          <div class="head-image">
+            <img src="@/assets/img/ChatRoom/notice.png" alt="">
+          </div>
+          <div class="right">
+            <div class="name-text">
+              <p>羽烬缘</p>
+              <span>01/12</span>
+            </div>
+            <div class="content-text">我会把这个不完美的故事，变成我们所期望的样子</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -24,7 +38,30 @@
 
 <script>
 export default {
-  name: 'ChatPage'
+  name: 'ChatPage',
+  data() {
+    return {
+      // 模拟好友数据
+      friendInfo: {
+        name: '羽烬缘',
+        avatar: '@/assets/img/ChatRoom/notice.png',
+        lastMsg: '我会把这个不完美的故事，变成我们所期望的样子',
+        lastTime: '01/12'
+      }
+    }
+  },
+  methods: {
+    // 切换到系统通知
+    switchToNotice() {
+      console.log('切换到系统通知')
+      this.$store.dispatch('switchToNotice')
+    },
+    // 切换到好友聊天
+    switchToFriendChat(friend) {
+      console.log('切换到好友聊天', friend)
+      this.$store.dispatch('switchToFriendChat', friend)
+    }
+  }
 }
 </script>
 
@@ -68,8 +105,8 @@ export default {
   display: flex;
   flex-direction: column;
 }
-.chat .list .message .item1 {
-  height: 54px;
+.chat .list .message .item {
+  height: 64px;
   display: flex;
   position: relative;
   margin: 0 3px;
@@ -78,17 +115,21 @@ export default {
   white-space: nowrap;
   cursor: pointer;
   border-radius: 10px;
+  user-select: none;
 }
-.chat .list .message .item1 .head-image {
+.chat .list .message .item:hover {
+  background-color: #e8f3ff;
+}
+.chat .list .message .item .head-image {
   width: 45px;
   height: 45px;
 }
-.chat .list .message .item1 .head-image img {
+.chat .list .message .item .head-image img {
   width: 45px;
   height: 45px;
   border-radius: 50%;
 }
-.chat .list .message .item1 .right {
+.chat .list .message .item .right {
   height: 50px;
   display: flex;
   flex-direction: column;
@@ -97,21 +138,29 @@ export default {
   text-align: left;
   overflow: hidden;
 }
-.chat .list .message .item1 .right .name-text {
+.chat .list .message .item .right .name-text {
   display: flex;
   justify-content: space-between;
 }
-.chat .list .message .item1 .right .name-text p {
+.chat .list .message .item .right .name-text p {
   font-size: 14px;
   color: black;
 }
-.chat .list .message .item1 .right .name-text span {
+.chat .list .message .item .right .name-text span {
   font-size: 12px;
   color: #808080;
 }
-.chat .list .message .item1 .right .content-text {
+.chat .list .message .item .right .content-text {
   font-size: 12px;
   color: #808080;
   overflow: hidden;
+}
+.item.active {
+  background-color: #e8f3ff !important;
+  border-left: 3px solid #2830d3;
+}
+.item:hover {
+  background-color: #f5f7fa;
+  cursor: pointer;
 }
 </style>

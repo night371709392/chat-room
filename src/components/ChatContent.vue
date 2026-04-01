@@ -11,13 +11,9 @@
     </div>
 
     <div class="main">
-      <textarea 
-        class="message-input" 
-        placeholder="请输入消息..."
-        v-model="content"
-      ></textarea>
+      <textarea class="message-input" placeholder="请输入消息..."></textarea>
       
-      <button class="send-btn" @click="sendMessage">
+      <button class="send-btn">
         发送
       </button>
     </div>

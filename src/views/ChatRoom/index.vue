@@ -4,14 +4,12 @@
     <!-- 二级路由渲染区：聊天/好友/群聊/设置入口 -->
     <router-view name="main" class="main-view"></router-view>
 
-    <!-- 系统通知 -->
-    <Notice v-show="activeChatType === 'notice'"></Notice>
+    <Notice v-show="showNotice"></Notice>
 
-    <!-- 好友 -->
-    <FriendChat v-show="activeChatType === 'friend' && currentFriend"></FriendChat>
+    <FriendChat v-show="!showNotice && showFriendChat"></FriendChat>
 
-    <!-- 三级路由渲染区：个人资料/手机/邮箱/密码等（仅setting下的三级路由显示） -->
-    <router-view name="setting" class="setting-view"></router-view>
+    <!-- 右侧内容区：聊天页展示 notice/friend，其它页面保持原有 setting 子路由 -->
+    <router-view v-show="!showNotice" name="setting" class="setting-view"></router-view>
 
     <AddFriend v-show="$store.state.addFriendPage"></AddFriend>
     <CreateGroup v-show="$store.state.createGroupPage"></CreateGroup>
@@ -35,13 +33,11 @@ export default {
     FriendChat
   },
   computed: {
-    // 从 Vuex 获取当前激活的聊天类型
-    activeChatType() {
-      return this.$store.getters.activeChatType
+    showNotice () {
+      return this.$route.path === '/chathome/chat' && this.$store.state.chatSubStatus === 'notice'
     },
-    // 从 Vuex 获取当前选中的好友
-    currentFriend() {
-      return this.$store.getters.currentFriend
+    showFriendChat () {
+      return this.$route.path === '/chathome/chat' && this.$store.state.chatSubStatus === 'friend'
     }
   }
 }
@@ -65,8 +61,12 @@ export default {
   border-right: 1px solid #eee;
   min-height: 100vh;
 }
+.content-view {
+  flex: 1;
+  min-width: 0;
+}
 .setting-view {
-  width: 814px;
+  width: 100%;
   min-height: 100vh;
 }
 </style>

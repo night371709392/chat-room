@@ -6,7 +6,7 @@
       </div>
       <div class="message">
         <!-- 系统通知 -->
-        <div class="item" @click="switchToNotice" :class="{ active: activeChatType === 'notice' }">
+        <div class="item" :class="{ active: activeSubStatus === 'notice' }" @click="setSubStatus('notice')">
           <div class="head-image">
             <img src="@/assets/img/ChatRoom/notice.png" alt="">
           </div>
@@ -19,7 +19,7 @@
           </div>
         </div>
         <!-- 好友 -->
-        <div class="item" @click="switchToFriendChat(friendInfo)" :class="{ active: activeChatType === 'friend' && currentFriend?.name === '羽烬缘' }">
+        <div class="item" :class="{ active: activeSubStatus === 'friend' }" @click="setSubStatus('friend')">
           <div class="head-image">
             <img src="@/assets/img/ChatRoom/notice.png" alt="">
           </div>
@@ -39,27 +39,14 @@
 <script>
 export default {
   name: 'ChatPage',
-  data() {
-    return {
-      // 模拟好友数据
-      friendInfo: {
-        name: '羽烬缘',
-        avatar: '@/assets/img/ChatRoom/notice.png',
-        lastMsg: '我会把这个不完美的故事，变成我们所期望的样子',
-        lastTime: '01/12'
-      }
+  computed: {
+    activeSubStatus () {
+      return this.$store.state.chatSubStatus
     }
   },
   methods: {
-    // 切换到系统通知
-    switchToNotice() {
-      console.log('切换到系统通知')
-      this.$store.dispatch('switchToNotice')
-    },
-    // 切换到好友聊天
-    switchToFriendChat(friend) {
-      console.log('切换到好友聊天', friend)
-      this.$store.dispatch('switchToFriendChat', friend)
+    setSubStatus (status) {
+      this.$store.commit('setChatSubStatus', status)
     }
   }
 }

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>PC微信输入框</title>
+    <style>
+        /* 全局重置样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* 模拟聊天页面背景（仅作衬托） */
+        body {
+            background-color: #E5E5E5;
+            padding: 20px;
+        }
+
+        /* 微信输入框外层容器（核心） */
+        .wx-input-box {
+            width: 100%;
+            max-width: 800px; /* 限制最大宽度，模拟PC微信窗口 */
+            margin: 0 auto;
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 8px; /* 微信圆角风格 */
+            padding: 12px 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* 输入框本体（textarea） */
+        #wx-input {
+            width: 100%;
+            /* 核心：去掉默认边框/轮廓 */
+            border: none;
+            outline: none;
+            /* 禁止手动缩放 */
+            resize: none;
+            /* 字体样式 */
+            font-size: 14px;
+            color: #333333;
+            line-height: 20px;
+            /* 最小/最大高度，模拟微信输入限制 */
+            min-height: 20px;
+            max-height: 120px;
+            /* 超出最大高度自动滚动 */
+            overflow-y: auto;
+        }
+
+        /* 占位文字样式 */
+        #wx-input::placeholder {
+            color: #BCBCBC;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 微信底部输入框（仅输入框） -->
+    <div class="wx-input-box">
+        <textarea id="wx-input" placeholder="输入消息..."></textarea>
+    </div>
+
+    <script>
+        // 核心功能：输入框自适应高度（随文字多少自动增高）
+        const inputEl = document.getElementById('wx-input');
+        inputEl.addEventListener('input', function() {
+            // 先重置高度，再根据内容高度自适应
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    </script>
+</body>
+</html>

@@ -7,7 +7,7 @@
         </div>
         <button @click="openPage"><i class="iconfont icon-jiahao"></i></button>
       </div>
-      <div class="top-item">
+      <div class="top-item" @click="setSubStatus('newfriend')">
         <div class="head-image">
           <img src="@/assets/img/ChatRoom/newfriend.png" alt="">
         </div>
@@ -15,6 +15,9 @@
           <p>新的朋友</p>
         </div>
       </div>
+      
+      <!-- 好友列表渲染 -->
+
     </div>
   </div>
 </template>
@@ -25,6 +28,10 @@ export default {
   methods: {
     openPage () {
       this.$store.commit('openAddFriendPage')
+    },
+    setSubStatus (status) {
+      this.$store.commit('setChatSubStatus', status)
+      console.log('当前聊天子状态:', this.$store.state.chatSubStatus)
     }
   }
 }
@@ -100,6 +107,7 @@ export default {
   align-items: center;
   white-space: nowrap;
   cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, .08);
 }
 .friend .list .top-item .head-image {
   width: 45px;

@@ -11,8 +11,9 @@
     </div>
 
     <div class="main">
-      <textarea class="message-input" placeholder="请输入消息..."></textarea>
-      
+      <div class="input-wrapper">
+        <textarea class="message-input" placeholder="请输入消息..."></textarea>
+      </div>
       <button class="send-btn">
         发送
       </button>
@@ -37,6 +38,11 @@ export default {
   color: black;
   cursor: pointer;
 }
+.chat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 .header {
   display: flex;
   height: 44px;
@@ -59,35 +65,37 @@ export default {
   font-size: 25px;
 }
 .main {
+  flex: 1;
   position: relative;
   padding: 5px;
   font-size: 14px;
   background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.input-wrapper {
+  flex: 1;
 }
 .message-input {
+  width: 100%;
+  height: 100%;
   border: none;
   outline: none;
-  width: 100%;
-  min-height: 155px;
-  padding: 8px;
-  padding-bottom: 50px;
-  font-size: 14px;
   resize: none;
-  line-height: 1.6;
-  text-align: left;
+  overflow: auto;
+  line-height: 20px;
 }
 .send-btn {
-  position: absolute;
-  right: 12px;
-  bottom: 10px;
-  width: 70px;
-  height: 32px;
-  background: #4285f4;
-  color: #fff;
-  border: none;
+  width: 60px;
+  height: 30px;
+  align-self: flex-end;
   border-radius: 8px;
+  border: none;
+  background-color: #3367d6;
+  color: white;
   cursor: pointer;
-  font-size: 14px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 .send-btn:active {
   background: #3367d6;

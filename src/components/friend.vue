@@ -12,6 +12,9 @@
       <Message></Message>
       <Message></Message>
       <Message></Message>
+      <Message></Message>
+      <Message></Message>
+      <Message></Message>
     </div>
     <ChatContent></ChatContent>
   </div>
@@ -62,7 +65,6 @@ export default {
   padding: 0 10px;
   background: #f6f7f8;
   overflow-y: auto;
-  flex: 1;
 }
 .friend .main .message-tip {
   line-height: 50px;

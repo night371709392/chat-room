@@ -45,6 +45,7 @@ export default {
 }
 .friend {
   flex: 1;
+  height: 100vh; 
   max-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -59,9 +60,10 @@ export default {
   font-size: 18px;
   background-color: #ffffff;
   border-bottom: 1px solid #ebeef5;
+  flex-shrink: 0;
 }
 .friend .main {
-  max-height: 600px;
+  height: 68vh;
   padding: 0 10px;
   background: #f6f7f8;
   overflow-y: auto;

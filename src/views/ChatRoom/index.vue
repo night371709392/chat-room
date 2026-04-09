@@ -15,6 +15,7 @@
 
     <AddFriend v-show="$store.state.addFriendPage"></AddFriend>
     <CreateGroup v-show="$store.state.createGroupPage"></CreateGroup>
+    <ChatNote v-show="$store.state.chatNotePage"></ChatNote>
   </div>
 </template>
 
@@ -25,6 +26,7 @@ import CreateGroup from '@/components/CreateGroup.vue'
 import Notice from '@/components/notice.vue'
 import FriendChat from '@/components/friend.vue'
 import NewFriend from '@/components/NewFriend.vue'
+import ChatNote from '@/components/ChatNote.vue'
 
 export default {
   name: 'ChatRoom',
@@ -34,7 +36,8 @@ export default {
     CreateGroup,
     Notice,
     FriendChat,
-    NewFriend
+    NewFriend,
+    ChatNote
   },
   computed: {
     showNotice () {

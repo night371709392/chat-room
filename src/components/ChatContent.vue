@@ -1,13 +1,13 @@
 <template>
   <div class="chat-content">
     <div class="header">
-      <div><i class="iconfont icon-biaoqing"></i></div>
-      <div><i class="iconfont icon-fasongtupian"></i></div>
-      <div><i class="iconfont icon-fasongshipin"></i></div>
-      <div><i class="iconfont icon-fasongwenjian"></i></div>
-      <div><i class="iconfont icon-fasongyuyin"></i></div>
-      <div><i class="iconfont icon-video"></i></div>
-      <div><i class="iconfont icon-liaotianjilu"></i></div>
+      <div><i title="表情" class="iconfont icon-biaoqing"></i></div>
+      <div><i title="发送图片" class="iconfont icon-fasongtupian"></i></div>
+      <div><i title="发送视频" class="iconfont icon-fasongshipin"></i></div>
+      <div><i title="发送文件" class="iconfont icon-fasongwenjian"></i></div>
+      <div><i title="发送语音" class="iconfont icon-fasongyuyin"></i></div>
+      <div><i title="通话" class="iconfont icon-video"></i></div>
+      <div><i title="聊天记录" class="iconfont icon-liaotianjilu" @click="openPage"></i></div>
     </div>
 
     <div class="main">
@@ -24,6 +24,11 @@
 <script>
 export default {
   name: 'ChatContentPage',
+  methods: {
+    openPage () {
+      this.$store.commit('openChatNotePage')
+    }
+  }
 }
 </script>
 

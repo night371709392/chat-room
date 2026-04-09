@@ -10,24 +10,109 @@
         <span class="title">添加好友</span>
       </div>
       <div class="body">
-        <input type="text" placeholder="ID/昵称/手机号/邮箱,最多展示20条">
+        <div class="search-wrapper">
+          <input type="text" placeholder="ID/昵称/手机号/邮箱,最多展示20条" v-model="email">
+          <div class="search" @click="SearchFriend">
+            <i class="iconfont icon-sousuo"></i>
+          </div>
+        </div>
+        <div class="list">
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+          <div class="item">
+            <div class="avatar"></div>
+            <div class="info">
+              <div class="name">蜜橘初夏</div>
+              <div class="id">ID:露芜衣</div>
+            </div>
+            <button><span>添加好友</span></button>
+          </div>
+        </div>
       </div>
     </van-popup>
   </div>
 </template>
 
 <script>
-
 import { Icon } from 'vant'
+import { Toast } from 'vant'
 
 export default {
   name: 'AddFriend',
+  data () {
+    return {
+      email: ''
+    }
+  },
   components: {
     vanIcon: Icon
   },
   methods: {
     closePage () {
       this.$store.commit('closeAddFriendPage')
+    },
+    // 校验邮箱
+    validateEmail () {
+      if (!this.email.trim()) {
+        Toast("请输入邮箱地址")
+        return false
+      }
+      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|vip|xyz|top|gov|edu|hk|tw|jp|kr|uk|us|co\.[a-z]{2})$/i.test(this.email)) {
+        Toast("请输入正确的邮箱号码")
+        return false
+      }
+      return true
+    },
+    SearchFriend () {
+      if (!this.validateEmail()) return
+
+      this.$axios({
+        url: '/api/application/search',
+        method: 'get',
+        params: {
+          email: this.email
+        }
+      }).then(res => {
+        console.log(res)
+      })
     }
   }
 }
@@ -38,6 +123,10 @@ export default {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+.iconfont {
+  font-size: 24px;
+  color: black;
 }
 .header {
   height: 48px;
@@ -57,11 +146,18 @@ export default {
   font-size: 16px;
 }
 .body {
-  min-height: 452px;
+  max-height: 500px;
   padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
 }
-.body input {
-  width: 100%;
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-wrapper input {
+  flex: 1;
   height: 32px;
   line-height: 32px;
   padding: 0 10px;
@@ -70,10 +166,56 @@ export default {
   transition: all .3s ease;
   background-color: #fff;
 }
-.body input:focus {
+.search-wrapper input:focus {
   border-color: #2830D3;
 }
-.body input:hover {
+.search-wrapper input:hover {
   border-color: #2830D3;
+}
+.search {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.body .list {
+  flex: 1;
+  overflow: auto;
+}
+.body .list .item {
+  height: 65px;
+  display: flex;
+  padding-left: 15px;
+  align-items: center;
+  padding-right: 25px;
+}
+.body .list .item .avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: #326EB6;
+}
+.body .list .item .info {
+  margin: 0 15px;
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.body .list .item .info .name {
+  font-size: 16px;
+  line-height: 25px;
+}
+.body .list .item .info .id {
+  font-size: 12px;
+}
+.body .list .item button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2830D3;
+  background-color: rgb(234, 234, 251);
+  cursor: pointer;
 }
 </style>

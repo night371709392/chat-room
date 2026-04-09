@@ -73,26 +73,24 @@ export default {
       if (!this.validateEmail()) return
       if (!this.validatePassword()) return
 
-      this.$router.push('/chathome')
-
-      // this.$axios({
-      //   url: '/api/user/login',
-      //   method: 'post',
-      //   data: {
-      //     email: this.email,
-      //     password: this.password
-      //   }
-      // }).then(res => {
-      //   if (res.data.msg === "success") {
-      //     sessionStorage.setItem('token', res.data.token)
-      //     Toast("登录成功")
-      //     this.$router.push('/chathome')
-      //   }
-      //   else {
-      //     Toast(res.data.msg || '登录失败')
-      //     return
-      //   }
-      // })
+      this.$axios({
+        url: '/api/user/login',
+        method: 'post',
+        data: {
+          email: this.email,
+          password: this.password
+        }
+      }).then(res => {
+        if (res.data.msg === "success") {
+          sessionStorage.setItem('token', res.data.token)
+          Toast("登录成功")
+          this.$router.push('/chathome')
+        }
+        else {
+          Toast(res.data.msg || '登录失败')
+          return
+        }
+      })
     }
   }
 }

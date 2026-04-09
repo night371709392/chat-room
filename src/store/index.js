@@ -8,6 +8,7 @@ const store = new Vuex.Store({
     addFriendPage: false,
     createGroupPage: false,
     chatSubStatus: 'notice',
+    chatNotePage: false
   },
   mutations: {
     openAddFriendPage (state) {
@@ -25,6 +26,12 @@ const store = new Vuex.Store({
     setChatSubStatus (state, status) {
       state.chatSubStatus = status
     },
+    openChatNotePage (state) {
+      state.chatNotePage = true
+    },
+    closeChatNotePage (state) {
+      state.chatNotePage = false
+    }
   }
 })
 

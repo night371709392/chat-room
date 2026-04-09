@@ -17,12 +17,12 @@
       <form class="el-form">
         <div class="nickname">
           <span>昵称</span>
-          <input type="text">
+          <input type="text" v-model="nickname">
         </div>
         <div class="sex">
           <span>性别</span>
-          <input type="radio" name="gender" value="male">男
-          <input type="radio" name="gender" value="female">女
+          <input type="radio" name="gender" :value="0">男
+          <input type="radio" name="gender" :value="1">女
         </div>
       </form>
     </div>
@@ -49,14 +49,40 @@
         <i class="iconfont icon-gexingqianming"></i>
         <h4>个性签名</h4>
       </div>
-      <textarea placeholder="分享你的心情和想法..."></textarea>
+      <textarea placeholder="分享你的心情和想法..." v-model="signature"></textarea>
+    </div>
+    <div class="btn">
+      <button @click="submit"><span>提交</span></button>
     </div>
   </div>
 </template>
 
 <script>
+
 export default {
-  name: 'InformationPage'
+  name: 'InformationPage',
+  data () {
+    return {
+      nickname: '',
+      signature: '',
+      gender: 0
+    }
+  },
+  methods: {
+    submit () {
+      this.$axios({
+        url: '/api/user/create',
+        method: 'post',
+        data: {
+          gender: this.gender,
+          name: this.nickname,
+          signature: this.signature
+        }
+      }).then(res => {
+        console.log(res)
+      })
+    }
+  }
 }
 </script>
 
@@ -208,5 +234,18 @@ export default {
 }
 .information .sign textarea:focus {
   border-color: #2830D3;
+}
+.btn {
+  margin-top: 20px;
+  text-align: center;
+}
+.btn button {
+  padding: 10px 28px;
+  font-size: 14px;
+  background-color: #2830D3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

@@ -14,7 +14,7 @@
     </div>
     <div>
       <i class="iconfont icon-youxiang"></i>
-      <router-link to="/chathome/setting/email" class="setting-link" exact>绑定邮箱</router-link>
+      <router-link to="/chathome/setting/email" class="setting-link" exact>修改邮箱</router-link>
     </div>
     <div>
       <i class="iconfont icon-mima"></i>

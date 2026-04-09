@@ -3,29 +3,159 @@
     <div class="mail">
       <div class="title">
         <i class="iconfont icon-youxiang"></i>
-        <h4>邮箱绑定</h4>
+        <h4>修改邮箱</h4>
       </div>
       <div class="form">
         <div class="number">
-          <span>邮箱</span>
-          <input type="text" placeholder="请输入邮箱地址">
+          <span>新邮箱</span>
+          <input type="text" placeholder="请输入新邮箱地址" v-model="new_email">
         </div>
         <div class="code">
           <span>邮件验证码</span>
-          <input type="text" placeholder="请输入验证码">
-          <button><span>获取验证码</span></button>
+          <input type="text" placeholder="请输入验证码" v-model="code">
+          <button @click="getCode" :disabled="second !== totalSecond">
+            <span>{{ second === totalSecond ? '获取验证码' : second + '秒后重新发送' }}</span>
+          </button>
         </div>
       </div>
       <div class="btn">
-        <button>绑定</button>
+        <button @click="alertEmail">提交</button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { Toast, Dialog } from 'vant'
+
 export default {
-  name: 'EmailPage'
+  name: 'EmailPage',
+  data () {
+    return {
+      code: '',
+      new_email: '',
+      totalSecond: 60, // 总秒数
+      second: 60, // 当前秒数，开定时器对 second--
+      timer: null // 定时器id
+    }
+  },
+  methods: {
+    // 校验新邮箱
+    validateEmail () {
+      if (!this.new_email.trim()) {
+        Toast("请输入邮箱地址")
+        return false
+      }
+      if (!/^[\w.-]+@[\w.-]+\.\w+$/i.test(this.new_email)) {
+        Toast("请输入正确的邮箱号码")
+        return false
+      }
+      return true
+    },
+    // 新增：单独封装倒计时方法
+    startTimer () {
+      this.timer = setInterval(() => {
+        this.second--
+        if (this.second <= 0) {
+          clearInterval(this.timer)
+          this.timer = null
+          this.second = this.totalSecond
+        }
+      }, 1000)
+    },
+    // 获取邮箱验证码
+    getCode () {
+      if (!this.validateEmail()) return
+
+      // 正在倒计时，禁止重复点击
+      if (this.timer !== null || this.second !== this.totalSecond) {
+        Toast('请稍后再获取验证码')
+        return
+      }
+
+      // 先加载提示，提升体验
+      Toast.loading({
+        message: '发送中...',
+        forbidClick: true,
+        duration: 0
+      })
+
+      // 先发送请求 → 成功后再开启倒计时
+      this.$axios({
+        url: '/api/email/send',
+        method: 'post',
+        data: {
+          email: this.new_email
+        }
+      }).then(res => {
+        Toast.clear()
+
+        if (res.data === "success") {
+          Toast("验证码已发送至您的邮箱，请注意查收")
+      
+          // ✅ 接口成功后，才开启倒计时
+          this.startTimer()
+        }
+        else {
+          Toast(res.data)
+        }
+        console.log(res)
+      }).catch(() => {
+        Toast.clear()
+        Toast('发送失败，请重试')
+      })
+    },
+
+    // 校验验证码
+    validateCode () {
+      if (!this.code.trim()) {
+        Toast("请输入验证码")
+        return false
+      }
+      if (!/^\d{6}$/.test(this.code)) {
+        Toast("请输入6位数字的验证码")
+        return false
+      }
+      return true
+    },
+
+    // 绑定新邮箱
+    alertEmail () {
+      if (!this.validateCode()) return
+
+      Dialog.confirm({
+        title: '修改邮箱',
+        message: '确认修改邮箱？',
+      }).then(() => {
+        this.$axios({
+          url: '/api/user/update/email',
+          method: 'put',
+          data: {
+            code: this.code,
+            new_email: this.new_email
+          }
+        }).then(res => {
+          console.log(res)
+          if (res.data === "success") {
+            alert("邮箱修改成功，请重新登录")
+            sessionStorage.removeItem("token")
+            this.$router.push("/login")
+          }
+          else {
+            Toast(res.data)
+            return
+          }
+        })
+      }).catch(() => {
+        return
+      })
+    }
+  },
+  // 离开页面，清除定时器
+  destroyed () {
+    clearInterval(this.timer)
+    this.timer = null
+  }
 }
 </script>
 

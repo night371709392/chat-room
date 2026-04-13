@@ -4,7 +4,7 @@ import router from './router/index'
 import axios from 'axios'
 import store from '@/store/index'
 
-import { Tabbar, TabbarItem, Icon, Toast, Popup, Cell, Switch, IndexBar, IndexAnchor } from 'vant'
+import { Tabbar, TabbarItem, Icon, Toast, Popup, Cell, Switch, IndexBar, IndexAnchor, Badge } from 'vant'
 
 Vue.use(Tabbar)
 Vue.use(TabbarItem)
@@ -15,6 +15,7 @@ Vue.use(Cell)
 Vue.use(Switch)
 Vue.use(IndexBar)
 Vue.use(IndexAnchor)
+Vue.use(Badge)
 
 
 // 请求拦截器：统一加 JWT

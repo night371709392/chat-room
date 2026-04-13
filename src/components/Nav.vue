@@ -1,17 +1,41 @@
 <template>
   <div class="nav">
     <div class="nav-top">
-        <div class="avater"></div>
+        <div class="avater" @click="toInformation">
+          <img :src="avatarUrl" alt="">
+        </div>
         <ul>
-            <li title="消息"><router-link to="/chathome/chat"><i class="iconfont icon-xiaoxi"></i></router-link></li>
-            <li title="朋友"><router-link to="/chathome/friend"><i class="iconfont icon-pengyou"></i></router-link></li>
-            <li title="群聊"><router-link to="/chathome/group"><i class="iconfont icon-tongxunlu"></i></router-link></li>
-            <li title="设置"><router-link to="/chathome/setting"><i class="iconfont icon-shezhi"></i></router-link></li>
+            <li title="消息">
+                <router-link to="/chathome/chat">
+                  <van-badge dot>
+                    <i class="iconfont icon-xiaoxi"></i>
+                  </van-badge>
+                </router-link>
+            </li>
+            <li title="朋友">
+                <router-link to="/chathome/friend">
+                  <van-badge dot>
+                    <i class="iconfont icon-pengyou"></i>
+                  </van-badge>
+                </router-link>
+            </li>
+            <li title="群聊">
+                <router-link to="/chathome/group">
+                  <van-badge dot>
+                    <i class="iconfont icon-tongxunlu"></i>
+                  </van-badge>
+                </router-link>
+            </li>
+            <li title="设置">
+                <router-link to="/chathome/setting">
+                    <i class="iconfont icon-shezhi"></i>
+                </router-link>
+            </li>
         </ul>
     </div>
     <div class="nav-footer">
         <ul>
-            <li title="退出登录" @click="logout"><a href=""><i class="iconfont icon-tuichu"></i></a></li>
+            <li title="退出登录" @click="logout"><a href="javascript:void(0)"><i class="iconfont icon-tuichu"></i></a></li>
         </ul>
     </div>
   </div>
@@ -20,9 +44,21 @@
 <script>
 export default {
     name: 'NavPage',
+    computed: {
+      avatarUrl () {
+        return this.$store.state.userPicture || this.$store.state.selectedAvatarUrl || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+      }
+    },
     methods: {
-      logout () {
+      logout (e) {
+        if (e) e.preventDefault()
         sessionStorage.removeItem('token')
+      },
+      toInformation () {
+        const targetPath = '/chathome/setting/information'
+        if (this.$route.path !== targetPath) {
+          this.$router.push(targetPath)
+        }
       }
     }
 }
@@ -63,6 +99,13 @@ a {
     height: 42px;
     border-radius: 50%;
     background-color: #326EB6;
+    cursor: pointer;
+}
+.nav .nav-top .avater img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-image: cover;
 }
 .nav .nav-top ul {
     margin-top: 50px;

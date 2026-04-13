@@ -5,40 +5,25 @@
         <input type="text" placeholder="搜索">
       </div>
       <div class="message">
-        <!-- 系统通知 -->
-        <div class="item" :class="{ active: activeSubStatus === 'notice' }" @click="setSubStatus('notice')">
-          <div class="head-image">
-            <img src="@/assets/img/ChatRoom/notice.png" alt="">
-          </div>
-          <div class="right">
-            <div class="name-text">
-              <p>系统通知</p>
-              <span>01/29</span>
-            </div>
-            <div class="content-text">"同城约app"是勒索骗局，请勿上当受骗！</div>
-          </div>
-        </div>
-        <!-- 好友 -->
-        <div class="item" :class="{ active: activeSubStatus === 'friend' }" @click="setSubStatus('friend')">
-          <div class="head-image">
-            <img src="@/assets/img/ChatRoom/notice.png" alt="">
-          </div>
-          <div class="right">
-            <div class="name-text">
-              <p>羽烬缘</p>
-              <span>01/12</span>
-            </div>
-            <div class="content-text">我会把这个不完美的故事，变成我们所期望的样子</div>
-          </div>
-        </div>
+        <ContactItem></ContactItem>
       </div>
     </div>
   </div>
 </template>
 
-<script>
+<script scoped>
+import ContactItem from '@/components/ContactItem.vue'
+
 export default {
   name: 'ChatPage',
+  components: {
+    ContactItem
+  },
+  data () {
+    return {
+      avatarUrl: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
+  },
   computed: {
     activeSubStatus () {
       return this.$store.state.chatSubStatus
@@ -91,6 +76,9 @@ export default {
 .chat .list .message {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
 }
 .chat .list .message .item {
   height: 64px;

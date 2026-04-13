@@ -2,6 +2,9 @@
   <div class="message-box">
     <!-- 对方消息 -->
     <div class="message-item other">
+      <div class="avater">
+        <img :src="avatarUrl" alt="头像">
+      </div>
       <div class="message-bubble">
         你好呀，这是一条静态消息
       </div>
@@ -9,6 +12,9 @@
 
     <!-- 自己发的消息 -->
     <div class="message-item self">
+      <div class="avater">
+        <img :src="avatarUrl" alt="头像">
+      </div>
       <div class="message-bubble">
         收到啦，我是静态组件
       </div>
@@ -18,7 +24,12 @@
 
 <script>
 export default {
-  name: 'MessagePage'
+  name: 'MessagePage',
+  data () {
+    return {
+      avatarUrl: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
+  }
 }
 </script>
 
@@ -33,10 +44,25 @@ export default {
 }
 .message-item {
   display: flex;
-  margin-bottom: 12px;
+  margin: 10px 0;
+  gap: 10px;
+  flex-direction: row;
+}
+.avater {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #ccc;
+  cursor: pointer;
+}
+.avater img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-image: cover;
 }
 .message-item.self {
-  justify-content: flex-end;
+  flex-direction: row-reverse;
 }
 .message-bubble {
   max-width: 70%;

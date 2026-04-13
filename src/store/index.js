@@ -7,8 +7,17 @@ const store = new Vuex.Store({
   state: {
     addFriendPage: false,
     createGroupPage: false,
-    chatSubStatus: 'notice',
-    chatNotePage: false
+    chatSubStatus: '',
+    chatNotePage: false,
+    avatarPage: false,
+    userEmail: '',
+    userName: '',
+    userGender: 0,
+    userPicture: '',
+    userPictureId: null,
+    userSignature: '',
+    selectedAvatarId: null,
+    selectedAvatarUrl: ''
   },
   mutations: {
     openAddFriendPage (state) {
@@ -31,6 +40,26 @@ const store = new Vuex.Store({
     },
     closeChatNotePage (state) {
       state.chatNotePage = false
+    },
+    openAvatarPage (state) {
+      state.avatarPage = true
+      console.log('打开头像选择页面')
+    },
+    closeAvatarPage (state) {
+      state.avatarPage = false
+      console.log('关闭头像选择页面')
+    },
+    setSelectedAvatar (state, { id, url }) {
+      state.selectedAvatarId = id
+      state.selectedAvatarUrl = url
+    },
+    setUserInfo (state, { name, gender, picture, pictureId, signature, email }) {
+      if (name !== undefined) state.userName = name
+      if (gender !== undefined) state.userGender = gender
+      if (picture !== undefined) state.userPicture = picture
+      if (pictureId !== undefined) state.userPictureId = pictureId
+      if (signature !== undefined) state.userSignature = signature
+      if (email !== undefined) state.userEmail = email
     }
   }
 })

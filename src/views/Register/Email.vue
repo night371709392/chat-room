@@ -46,7 +46,7 @@ export default {
         Toast("请输入邮箱地址")
         return false
       }
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|vip|xyz|top|gov|edu|hk|tw|jp|kr|uk|us|co\.[a-z]{2})$/i.test(this.email)) {
+      if (!/^[\w.-]+@[\w.-]+\.\w+$/i.test(this.email)) {
         Toast("请输入正确的邮箱号码")
         return false
       }

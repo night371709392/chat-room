@@ -11,7 +11,7 @@
       </div>
       <div class="body">
         <div class="search-wrapper">
-          <input type="text" placeholder="ID/昵称/手机号/邮箱,最多展示20条" v-model="email">
+          <input type="text" placeholder="ID/昵称/手机号/邮箱,最多展示20条" v-model="text">
           <div class="search" @click="SearchFriend">
             <i class="iconfont icon-sousuo"></i>
           </div>
@@ -79,7 +79,7 @@ export default {
   name: 'AddFriend',
   data () {
     return {
-      email: ''
+      text: ''
     }
   },
   components: {
@@ -90,29 +90,42 @@ export default {
       this.$store.commit('closeAddFriendPage')
     },
     // 校验邮箱
-    validateEmail () {
-      if (!this.email.trim()) {
-        Toast("请输入邮箱地址")
-        return false
-      }
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|vip|xyz|top|gov|edu|hk|tw|jp|kr|uk|us|co\.[a-z]{2})$/i.test(this.email)) {
-        Toast("请输入正确的邮箱号码")
-        return false
-      }
-      return true
+    validateEmail (val) {
+      return /^[\w.-]+@[\w.-]+\.\w+$/i.test(val)
     },
-    SearchFriend () {
-      if (!this.validateEmail()) return
 
-      this.$axios({
-        url: '/api/application/search',
-        method: 'get',
-        params: {
-          email: this.email
-        }
-      }).then(res => {
-        console.log(res)
-      })
+    SearchFriend () {
+      if (!this.text.trim()) {
+        Toast("请输入搜索内容")
+        return
+      }
+
+      const content = this.text.trim()
+
+      // 邮箱搜索
+      if (this.validateEmail(content)) {
+        this.$axios({
+          url: '/api/application/search/email',
+          method: 'get',
+          params: {
+            email: content
+          }
+        }).then(res => {
+          console.log(res)
+        })
+      }
+      // ID搜索
+      else {
+        this.$axios({
+          url: '/api/application/search/name',
+          method: 'post',
+          data: {
+            name: content
+          }
+        }).then(res => {
+          console.log(res)
+        })
+      }
     }
   }
 }

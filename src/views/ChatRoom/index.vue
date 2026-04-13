@@ -4,18 +4,18 @@
     <!-- 二级路由渲染区：聊天/好友/群聊/设置入口 -->
     <router-view name="main" class="main-view"></router-view>
 
-    <Notice v-show="showNotice"></Notice>
-
-    <FriendChat v-show="!showNotice && showFriendChat"></FriendChat>
+    <FriendChat v-show="showFriendChat"></FriendChat>
 
     <NewFriend v-show="showNewFriend"></NewFriend>
 
     <!-- 右侧内容区：聊天页展示 notice/friend，其它页面保持原有 setting 子路由 -->
-    <router-view v-show="!showNotice" name="setting" class="setting-view"></router-view>
+    <router-view name="setting" class="setting-view"></router-view>
 
     <AddFriend v-show="$store.state.addFriendPage"></AddFriend>
     <CreateGroup v-show="$store.state.createGroupPage"></CreateGroup>
     <ChatNote v-show="$store.state.chatNotePage"></ChatNote>
+    <Avatar v-show="$store.state.avatarPage"></Avatar>
+    
   </div>
 </template>
 
@@ -23,10 +23,10 @@
 import Nav from '@/components/Nav.vue'
 import AddFriend from '@/components/AddFriend.vue'
 import CreateGroup from '@/components/CreateGroup.vue'
-import Notice from '@/components/notice.vue'
 import FriendChat from '@/components/friend.vue'
 import NewFriend from '@/components/NewFriend.vue'
 import ChatNote from '@/components/ChatNote.vue'
+import Avatar from '@/components/Avatar.vue'
 
 export default {
   name: 'ChatRoom',
@@ -34,21 +34,36 @@ export default {
     Nav,
     AddFriend,
     CreateGroup,
-    Notice,
     FriendChat,
     NewFriend,
-    ChatNote
+    ChatNote,
+    Avatar
   },
   computed: {
-    showNotice () {
-      return this.$route.path === '/chathome/chat' && this.$store.state.chatSubStatus === 'notice'
-    },
     showFriendChat () {
       return this.$route.path === '/chathome/chat' && this.$store.state.chatSubStatus === 'friend'
     },
     showNewFriend () {
       return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'newfriend'
     }
+  },
+  created () {
+    this.$axios({
+      url: '/api/user/show/main',
+      method: 'post'
+    }).then(res => {
+      console.log(res)
+      if (res.data.err === "success") {
+        this.$store.commit('setUserInfo', {
+          name: res.data.user.name,
+          gender: res.data.user.gender,
+          picture: res.data.user.picture,
+          pictureId: res.data.user.picture_id ?? res.data.user.pictureId,
+          signature: res.data.user.signature,
+          email: res.data.user.email
+        })
+      }
+    })
   }
 }
 </script>

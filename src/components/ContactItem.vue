@@ -1,14 +1,14 @@
 <template>
-  <div class="item" :class="{ active: activeSubStatus === 'friend' }" @click="setSubStatus('friend')">
+  <div v-if="friendDetail" class="item" :class="{ active: isActive }" @click="openFriendChat">
     <div class="head-image">
-      <img src="https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg" alt="">
+      <img :src="friendDetail.avatar || defaultAvatar" alt="">
     </div>
     <div class="right">
       <div class="name-text">
-        <p>羽烬缘</p>
-        <span>01/12</span>
+        <p>{{ friendDetail.username || friendDetail.nickname || '-' }}</p>
+        <span>刚刚</span>
       </div>
-      <div class="content-text">我会把这个不完美的故事，变成我们所期望的样子</div>
+      <div class="content-text">{{ friendDetail.signature || '你们已成为好友，现在可以开始聊天了' }}</div>
     </div>
   </div>
 </template>
@@ -16,14 +16,32 @@
 <script>
 export default {
   name: 'ContactItem',
+  props: {
+    friendDetail: {
+      type: Object,
+      default: null
+    }
+  },
+  data () {
+    return {
+      defaultAvatar: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
+  },
   computed: {
     activeSubStatus () {
       return this.$store.state.chatSubStatus
     },
+    isActive () {
+      if (!this.friendDetail) return false
+      return this.activeSubStatus === 'friend' && String(this.$store.state.currentChatFriendId) === String(this.friendDetail.id)
+    }
   },
   methods: {
-    setSubStatus (status) {
-      this.$store.commit('setChatSubStatus', status)
+    openFriendChat () {
+      if (!this.friendDetail) return
+      this.$store.commit('setCurrentFriendDetail', this.friendDetail)
+      this.$store.commit('setCurrentChatFriendId', this.friendDetail.id)
+      this.$store.commit('setChatSubStatus', 'friend')
     }
   }
 }

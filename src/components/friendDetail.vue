@@ -26,7 +26,7 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-primary" type="button">发消息</button>
+        <button class="btn btn-primary" type="button" @click="goChatPage">发消息</button>
         <button class="btn btn-danger" type="button">删除好友</button>
       </div>
     </div>
@@ -48,6 +48,14 @@ export default {
   data () {
     return {
       defaultAvatar: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
+  },
+  methods: {
+    goChatPage () {
+      if (!this.friend) return
+      this.$store.commit('openFriendChat', this.friend)
+      this.$store.commit('setChatSubStatus', 'friend')
+      this.$router.push('/chathome/chat')
     }
   }
 }

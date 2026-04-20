@@ -3,7 +3,7 @@
     <!-- 对方消息 -->
     <div class="message-item other">
       <div class="avater">
-        <img src="https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg" alt="头像">
+        <img :src="friendAvatarUrl" alt="头像">
       </div>
       <div class="message-bubble">
         你好呀，这是一条静态消息
@@ -30,6 +30,14 @@ export default {
     myAvatarUrl() {
       return this.$store.state.selectedAvatarUrl || this.$store.state.userPicture || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
     },
+    currentChatFriend () {
+      const currentId = this.$store.state.currentChatFriendId
+      if (currentId === null || currentId === undefined) return null
+      return this.$store.state.chatFriendList.find(item => String(item.id) === String(currentId)) || null
+    },
+    friendAvatarUrl () {
+      return this.currentChatFriend?.avatar || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
   }
 }
 </script>

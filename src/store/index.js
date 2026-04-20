@@ -27,6 +27,8 @@ const store = new Vuex.Store({
     userSignature: '', // 用户个性签名
     userFriendList: [], // 用户好友列表
     currentFriendDetail: null, // 当前选中的好友详情
+    chatFriendList: [], // 已打开的聊天会话好友列表
+    currentChatFriendId: null, // 当前聊天会话好友id
 
     // 选择的头像信息
     selectedAvatarId: null,
@@ -77,6 +79,21 @@ const store = new Vuex.Store({
     },
     setCurrentFriendDetail (state, friendDetail) {
       state.currentFriendDetail = friendDetail
+    },
+    openFriendChat (state, friendDetail) {
+      if (!friendDetail) return
+      const friendId = friendDetail.id
+      if (friendId === undefined || friendId === null || friendId === '') return
+
+      const idx = state.chatFriendList.findIndex(item => String(item.id) === String(friendId))
+      if (idx > -1) {
+        state.chatFriendList.splice(idx, 1)
+      }
+      state.chatFriendList.unshift(friendDetail)
+      state.currentChatFriendId = friendId
+    },
+    setCurrentChatFriendId (state, friendId) {
+      state.currentChatFriendId = friendId
     }
   }
 })

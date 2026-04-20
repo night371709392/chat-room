@@ -1,7 +1,7 @@
 <template>
   <div class="friend">
     <div class="header">
-      <span>羽烬缘</span>
+      <span>{{ friendName }}</span>
       <span><i class="iconfont icon-gengduo"></i></span>
     </div>
     <div class="main">
@@ -29,6 +29,17 @@ export default {
   components: {
     Message,
     ChatContent
+  },
+  computed: {
+    currentChatFriend () {
+      const currentId = this.$store.state.currentChatFriendId
+      if (currentId === null || currentId === undefined) return null
+      return this.$store.state.chatFriendList.find(item => String(item.id) === String(currentId)) || null
+    },
+    friendName () {
+      if (!this.currentChatFriend) return '聊天'
+      return this.currentChatFriend.username || this.currentChatFriend.nickname || '聊天'
+    }
   }
 }
 </script>

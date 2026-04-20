@@ -5,7 +5,11 @@
         <input type="text" placeholder="搜索">
       </div>
       <div class="message">
-        <ContactItem></ContactItem>
+        <ContactItem
+          v-for="item in chatFriendList"
+          :key="item.id"
+          :friend-detail="item"
+        ></ContactItem>
       </div>
     </div>
   </div>
@@ -27,6 +31,9 @@ export default {
   computed: {
     activeSubStatus () {
       return this.$store.state.chatSubStatus
+    },
+    chatFriendList () {
+      return this.$store.state.chatFriendList
     }
   },
   methods: {

@@ -1,7 +1,7 @@
 <template>
   <div class="item" :class="{ active: activeSubStatus === 'friend' }" @click="setSubStatus('friend')">
     <div class="head-image">
-      <img :src="avatarUrl" alt="">
+      <img src="https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg" alt="">
     </div>
     <div class="right">
       <div class="name-text">
@@ -16,15 +16,10 @@
 <script>
 export default {
   name: 'ContactItem',
-  data () {
-    return {
-      avatarUrl: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
-    }
-  },
   computed: {
     activeSubStatus () {
       return this.$store.state.chatSubStatus
-    }
+    },
   },
   methods: {
     setSubStatus (status) {

@@ -50,9 +50,22 @@ export default {
       }
     },
     methods: {
-      logout (e) {
-        if (e) e.preventDefault()
-        sessionStorage.removeItem('token')
+      logout() {
+      // 1. 删除本地 token
+      sessionStorage.removeItem('token')
+      
+      // 2. 清空 Vuex 里的所有用户信息（关键！）
+      this.$store.commit('setUserInfo', {
+        name: '',
+        gender: 0,
+        picture: '',
+        pictureId: null,
+        signature: '',
+        email: ''
+      })
+      
+      // 3. 跳转到登录页（必须！）
+      this.$router.push('/login')
       },
       toInformation () {
         const targetPath = '/chathome/setting/information'

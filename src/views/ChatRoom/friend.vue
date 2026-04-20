@@ -7,7 +7,8 @@
         </div>
         <button @click="openPage"><i class="iconfont icon-jiahao"></i></button>
       </div>
-      <div class="top-item" @click="setSubStatus('newfriend')">
+
+      <div class="item" @click="setSubStatus('newfriend')">
         <div class="head-image">
           <img src="@/assets/img/ChatRoom/newfriend.png" alt="">
         </div>
@@ -17,6 +18,14 @@
       </div>
       
       <!-- 好友列表渲染 -->
+      <div class="item" @click="setSubStatus('friend'); friendDetail(item.friend_id)" v-for="item in friendList" :key="item.friend_id">
+        <div class="head-image">
+          <img :src="item.friend_picture" alt="">
+        </div>
+        <div class="right">
+          <p>{{ item.friend_name }}</p>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -25,15 +34,31 @@
 <script>
 export default {
   name: 'FriendPage',
+  computed: {
+    friendList () {
+      return this.$store.state.userFriendList
+    }
+  },
   methods: {
     openPage () {
       this.$store.commit('openAddFriendPage')
     },
     setSubStatus (status) {
       this.$store.commit('setChatSubStatus', status)
-      console.log('当前聊天子状态:', this.$store.state.chatSubStatus)
+      // console.log('当前聊天子状态:', this.$store.state.chatSubStatus)
+    },
+    friendDetail (id) {
+      this.$axios({
+        url: '/api/contact/friend/main',
+        method: 'post',
+        data: {
+          friend_id: id
+        }
+      }).then(res => {
+        console.log(res)
+      })
     }
-  }
+  },
 }
 </script>
 
@@ -45,7 +70,7 @@ export default {
 }
 .friend {
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   border-right: 1px solid rgba(0, 0, 0, .08);
   box-shadow: 2px 0 8px rgba(0, 0, 0, .05);
 }
@@ -99,7 +124,7 @@ export default {
   font-size: 16px;
   font-style: normal;
 }
-.friend .list .top-item {
+.friend .list .item {
   height: 60px;
   display: flex;
   position: relative;
@@ -109,16 +134,16 @@ export default {
   cursor: pointer;
   border-bottom: 1px solid rgba(0, 0, 0, .08);
 }
-.friend .list .top-item .head-image {
+.friend .list .item .head-image {
   width: 45px;
   height: 45px;
 }
-.friend .list .top-item .head-image img {
+.friend .list .item .head-image img {
   width: 45px;
   height: 45px;
   border-radius: 50%;
 }
-.friend .list .top-item .right {
+.friend .list .item .right {
   padding-left: 10px;
   text-align: left;
   flex: 1;

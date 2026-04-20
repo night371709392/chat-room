@@ -3,7 +3,7 @@
     <!-- 对方消息 -->
     <div class="message-item other">
       <div class="avater">
-        <img :src="avatarUrl" alt="头像">
+        <img src="https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg" alt="头像">
       </div>
       <div class="message-bubble">
         你好呀，这是一条静态消息
@@ -13,7 +13,7 @@
     <!-- 自己发的消息 -->
     <div class="message-item self">
       <div class="avater">
-        <img :src="avatarUrl" alt="头像">
+        <img :src="myAvatarUrl" alt="头像">
       </div>
       <div class="message-bubble">
         收到啦，我是静态组件
@@ -25,10 +25,11 @@
 <script>
 export default {
   name: 'MessagePage',
-  data () {
-    return {
-      avatarUrl: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
-    }
+  computed: {
+    //（关联Vuex）
+    myAvatarUrl() {
+      return this.$store.state.selectedAvatarUrl || this.$store.state.userPicture || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    },
   }
 }
 </script>

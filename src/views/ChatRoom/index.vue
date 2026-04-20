@@ -52,7 +52,6 @@ export default {
       url: '/api/user/show/main',
       method: 'post'
     }).then(res => {
-      console.log(res)
       if (res.data.err === "success") {
         this.$store.commit('setUserInfo', {
           name: res.data.user.name,
@@ -62,6 +61,15 @@ export default {
           signature: res.data.user.signature,
           email: res.data.user.email
         })
+      }
+    })
+    this.$axios({
+      url: '/api/contact/list',
+      method: 'post'
+    }).then(res => {
+      console.log(res)
+      if (res.data.error === 'success') {
+        this.$store.commit('setUserFriendList', res.data.list)
       }
     })
   }

@@ -17,53 +17,17 @@
           </div>
         </div>
         <div class="list">
-          <div class="item">
-            <div class="avatar"></div>
-            <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
+          <div 
+          class="item" 
+          v-for="item in list"
+          :key="item.id">
+            <div class="avatar">
+              <img :src="item.pictures || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'">
             </div>
-            <button><span>添加好友</span></button>
-          </div>
-          <div class="item">
-            <div class="avatar"></div>
             <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
+              <div class="name">{{ item.name }}</div>
             </div>
-            <button><span>添加好友</span></button>
-          </div>
-          <div class="item">
-            <div class="avatar"></div>
-            <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
-            </div>
-            <button><span>添加好友</span></button>
-          </div>
-          <div class="item">
-            <div class="avatar"></div>
-            <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
-            </div>
-            <button><span>添加好友</span></button>
-          </div>
-          <div class="item">
-            <div class="avatar"></div>
-            <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
-            </div>
-            <button><span>添加好友</span></button>
-          </div>
-          <div class="item">
-            <div class="avatar"></div>
-            <div class="info">
-              <div class="name">蜜橘初夏</div>
-              <div class="id">ID:露芜衣</div>
-            </div>
-            <button><span>添加好友</span></button>
+            <button @click="addFriend(item.email)"><span>添加好友</span></button>
           </div>
         </div>
       </div>
@@ -79,7 +43,8 @@ export default {
   name: 'AddFriend',
   data () {
     return {
-      text: ''
+      text: '',
+      list: []
     }
   },
   components: {
@@ -102,16 +67,25 @@ export default {
 
       const content = this.text.trim()
 
+      this.list = []
+
       // 邮箱搜索
       if (this.validateEmail(content)) {
         this.$axios({
           url: '/api/application/search/email',
-          method: 'get',
-          params: {
+          method: 'post',
+          data: {
             email: content
           }
         }).then(res => {
-          console.log(res)
+          // console.log(res)
+          if (res.data.error === 'success') {
+            const findData = res.data.find
+            this.list = Array.isArray(findData) ? findData : (findData ? [findData] : [])
+          }
+          else {
+            Toast(res.data.error)
+          }
         })
       }
       // ID搜索
@@ -123,11 +97,40 @@ export default {
             name: content
           }
         }).then(res => {
-          console.log(res)
+          // console.log(res)
+          if (res.data.error === 'success') {
+            const findData = res.data.find
+            this.list = Array.isArray(findData) ? findData : (findData ? [findData] : [])
+          }
+          else {
+            Toast(res.data.error)
+          }
+        }).catch(() => {
+          Toast("搜索失败，请稍后再试")
         })
       }
+    },
+
+    addFriend (email) {
+      this.$axios({
+        url: '/api/application/create',
+        method: 'post',
+        data: {
+          msg: '你好',
+          send_email: email
+        }
+      }).then(res => {
+        // console.log(res)
+        if (res.data === 'success') {
+          Toast("好友申请已发送")
+        }
+        else {
+          Toast(res.data.error || "发送失败，请稍后再试")
+        }
+      })
     }
-  }
+  },
+
 }
 </script>
 
@@ -159,7 +162,6 @@ export default {
   font-size: 16px;
 }
 .body {
-  max-height: 500px;
   padding: 10px 20px;
   display: flex;
   flex-direction: column;
@@ -192,7 +194,7 @@ export default {
   justify-content: center;
 }
 .body .list {
-  flex: 1;
+  height: 50vh;
   overflow: auto;
 }
 .body .list .item {
@@ -201,12 +203,19 @@ export default {
   padding-left: 15px;
   align-items: center;
   padding-right: 25px;
+  margin: 5px 0;
 }
 .body .list .item .avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
   background-color: #326EB6;
+}
+.body .list .item .avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 .body .list .item .info {
   margin: 0 15px;
@@ -218,9 +227,6 @@ export default {
 .body .list .item .info .name {
   font-size: 16px;
   line-height: 25px;
-}
-.body .list .item .info .id {
-  font-size: 12px;
 }
 .body .list .item button {
   padding: 10px 18px;

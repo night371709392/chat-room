@@ -35,6 +35,7 @@ export default {
   methods: {
     selectAvatar (item, index) {
       this.selectedId = item.id || (index + 1)
+      // 存入 Vuex
       this.$store.commit('setSelectedAvatar', {
         id: this.selectedId,
         url: item.web

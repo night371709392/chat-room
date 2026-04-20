@@ -44,8 +44,15 @@ export default {
     friendDetail
   },
   computed: {
+    hasCurrentChatFriend () {
+      const currentId = this.$store.state.currentChatFriendId
+      if (currentId === null || currentId === undefined || currentId === '') return false
+      return this.$store.state.chatFriendList.some(item => String(item.id) === String(currentId))
+    },
     showFriendChat () {
-      return this.$route.path === '/chathome/chat' && this.$store.state.chatSubStatus === 'friend'
+      return this.$route.path === '/chathome/chat' &&
+        this.$store.state.chatSubStatus === 'friend' &&
+        this.hasCurrentChatFriend
     },
     showNewFriend () {
       return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'newfriend'

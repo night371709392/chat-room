@@ -1,0 +1,255 @@
+asyncapi: 2.6.0
+info:
+  title: IM Chat · Socket.IO 私聊协议
+  version: "1.0.0"
+  description: |
+    Socket.IO 长连接的事件协议文档。Swagger(OpenAPI 2.0) 无法描述事件流，
+    因此这里用 AsyncAPI 来对 Socket.IO 做规范描述。
+    可直接在 https://studio.asyncapi.com 粘贴本文件查看可视化渲染。
+
+servers:
+  production:
+    url: "{host}:{port}"
+    protocol: ws
+    description: Socket.IO 服务器入口（默认 path 为 /socket.io/）
+    variables:
+      host:
+        default: "localhost"
+      port:
+        default: "8080"
+    security:
+      - tokenAuth: []
+
+defaultContentType: application/json
+
+channels:
+  /socket.io/:
+    description: |
+      Socket.IO 长连接入口。通过 query 参数 `token` 携带 JWT 鉴权。
+      建立连接后：
+        - 客户端 emit `msg` 事件发送私聊消息（文本或文件）
+        - 服务端 emit `message` 事件推送"收到的消息"或"发送回执(ack)"
+    bindings:
+      ws:
+        query:
+          type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: 登录接口返回的 JWT
+            EIO:
+              type: string
+              description: Engine.IO 版本，一般由客户端 SDK 自动填
+              default: "4"
+            transport:
+              type: string
+              enum: [websocket, polling]
+              default: websocket
+    publish:
+      operationId: clientSendMsg
+      summary: "[C→S] 客户端发送私聊消息（事件名：msg）"
+      description: |
+        客户端通过 `socket.emit("msg", payload)` 发送。
+        - `msg_type=1` 文本消息：`msg` 必填
+        - `msg_type=2` 文件消息：`file_url` 或 `msg` 至少一个必填；建议同时带 `file_name`
+        - `sender_id` 由服务端从 token 解析，前端无需传
+      message:
+        oneOf:
+          - $ref: "#/components/messages/TextMessage"
+          - $ref: "#/components/messages/FileMessage"
+    subscribe:
+      operationId: serverPushMessage
+      summary: "[S→C] 服务端推送消息或回执（事件名：message）"
+      description: |
+        同一个事件名 `message` 承载两种 payload，通过 `type` 字段区分：
+        - `type=ack`：给发送方的回执，表示服务端已受理
+        - `type=private`：给接收方的私聊消息（文本或文件）
+      message:
+        oneOf:
+          - $ref: "#/components/messages/AckMessage"
+          - $ref: "#/components/messages/IncomingPrivateMessage"
+
+components:
+  securitySchemes:
+    tokenAuth:
+      type: httpApiKey
+      in: query
+      name: token
+      description: JWT Token，来自登录接口。
+
+  messages:
+    TextMessage:
+      name: TextMessage
+      title: 文本消息（msg_type=1）
+      summary: 发送一条文本私聊消息
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/WsMsgTextOut"
+      examples:
+        - name: simple
+          summary: 普通文本
+          payload:
+            type: private
+            receiver_id: 1024
+            msg_type: 1
+            msg: "你好呀"
+
+    FileMessage:
+      name: FileMessage
+      title: 文件消息（msg_type=2）
+      summary: 发送一条文件私聊消息（文件本身先通过 HTTP 上传获得 URL）
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/WsMsgFileOut"
+      examples:
+        - name: image
+          summary: 发送图片
+          payload:
+            type: private
+            receiver_id: 1024
+            msg_type: 2
+            msg: "https://cdn.example.com/f/abc.png"
+            file_url: "https://cdn.example.com/f/abc.png"
+            file_name: "abc.png"
+
+    AckMessage:
+      name: AckMessage
+      title: 发送回执（type=ack）
+      summary: 服务端告知发送方"消息已受理"
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/WsMsgAck"
+      examples:
+        - name: ok
+          payload:
+            type: ack
+            receiver_id: 1024
+            msg: "ok"
+            msg_type: 1
+            timestamp: 1734567890123
+
+    IncomingPrivateMessage:
+      name: IncomingPrivateMessage
+      title: 收到私聊消息（type=private）
+      summary: 服务端向接收方推送一条私聊消息
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/WsMsgIncoming"
+      examples:
+        - name: text
+          summary: 收到文本
+          payload:
+            type: private
+            sender_id: 2048
+            receiver_id: 1024
+            msg_type: 1
+            msg: "你好呀"
+            timestamp: 1734567890123
+        - name: file
+          summary: 收到文件
+          payload:
+            type: private
+            sender_id: 2048
+            receiver_id: 1024
+            msg_type: 2
+            msg: "https://cdn.example.com/f/abc.png"
+            file_url: "https://cdn.example.com/f/abc.png"
+            file_name: "abc.png"
+            timestamp: 1734567890123
+
+  schemas:
+    WsMsgTextOut:
+      type: object
+      required: [type, receiver_id, msg_type, msg]
+      properties:
+        type:
+          type: string
+          enum: [private, text]
+          description: 消息类型，均为私聊
+        receiver_id:
+          type: integer
+          format: int64
+          description: 接收方用户 ID
+        msg_type:
+          type: integer
+          enum: [1]
+          description: 1 = 文本消息
+        msg:
+          type: string
+          description: 文本内容
+
+    WsMsgFileOut:
+      type: object
+      required: [type, receiver_id, msg_type]
+      properties:
+        type:
+          type: string
+          enum: [private, text]
+        receiver_id:
+          type: integer
+          format: int64
+        msg_type:
+          type: integer
+          enum: [2]
+          description: 2 = 文件消息
+        msg:
+          type: string
+          description: 兼容字段，可等于 file_url
+        file_url:
+          type: string
+          format: uri
+          description: 文件地址，msg_type=2 建议必填
+        file_name:
+          type: string
+          description: 文件名，用于前端展示
+
+    WsMsgAck:
+      type: object
+      required: [type, msg, receiver_id, msg_type]
+      properties:
+        type:
+          type: string
+          enum: [ack]
+        msg:
+          type: string
+          description: 固定 "ok"
+        receiver_id:
+          type: integer
+          format: int64
+        msg_type:
+          type: integer
+          enum: [1, 2]
+        timestamp:
+          type: integer
+          format: int64
+          description: 毫秒时间戳，和落库时间一致
+
+    WsMsgIncoming:
+      type: object
+      required: [type, sender_id, receiver_id, msg_type, msg]
+      properties:
+        type:
+          type: string
+          enum: [private]
+        sender_id:
+          type: integer
+          format: int64
+        receiver_id:
+          type: integer
+          format: int64
+        msg_type:
+          type: integer
+          enum: [1, 2]
+        msg:
+          type: string
+        file_url:
+          type: string
+          format: uri
+          description: msg_type=2 时存在
+        file_name:
+          type: string
+          description: msg_type=2 时存在
+        timestamp:
+          type: integer
+          format: int64

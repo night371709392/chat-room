@@ -1,0 +1,222 @@
+# IM Chat · Socket.IO 私聊协议
+
+> 本文档是 Socket.IO 通道的接口说明，**Swagger 只能展示 HTTP 请求，不能描述事件流**，
+> 因此前端请以本文件 + [`asyncapi.yaml`](./asyncapi.yaml) 为准。
+>
+> 对应后端实现：
+> - 入口：`controller/chat/wschat.go` → `ServeSocketIO`
+> - 服务端：`logic/ws/server.go`、`logic/ws/handler.go`
+> - 消息结构体：`models.WsMsg`（见 `models/message.go`）
+
+---
+
+## 1. 连接
+
+| 项目 | 值 |
+| --- | --- |
+| 协议 | Socket.IO v4（底层 Engine.IO v4，推荐 `transports: ["websocket"]`） |
+| 路径 | `/socket.io/`（默认 path，客户端 SDK 会自动拼接） |
+| 鉴权 | query 参数 `token`，值为登录接口返回的 JWT |
+| 失败行为 | `token` 缺失 / 过期 / 非法 → 服务端立即 `disconnect(true)` |
+| 踢号 | 同一个 `user_id` 再次建立连接时，旧连接会被服务端主动断开 |
+
+### 浏览器端示例（`socket.io-client`）
+
+```ts
+import { io } from "socket.io-client";
+
+const socket = io("http://<host>:<port>", {
+  transports: ["websocket"],
+  query: { token: localStorage.getItem("token")! },
+});
+
+socket.on("connect", () => {
+  console.log("connected, sid =", socket.id);
+});
+
+socket.on("connect_error", (e) => {
+  // token 非法或服务器拒绝
+  console.error(e);
+});
+```
+
+---
+
+## 2. 消息体：`WsMsg`
+
+所有事件的 payload 都是同一个结构体，字段含义如下：
+
+| 字段 | 类型 | 方向 | 说明 |
+| --- | --- | --- | --- |
+| `type` | string | C↔S | 消息类型。客户端发：`private` / `text`（二者等价，均为私聊）。服务端推：`private`（转发给接收方）或 `ack`（回给发送方的回执）。 |
+| `msg_type` | int | C↔S | `1` = 文本消息；`2` = 文件消息。 |
+| `receiver_id` | int64 | C→S | 接收方用户 ID。**必填**。 |
+| `sender_id` | int64 | S→C | 发送方用户 ID。**前端不要填**，由服务端从 JWT 解析并覆盖。 |
+| `msg` | string | C↔S | 文本消息的正文；文件消息可放文件 URL（和 `file_url` 二选一）。 |
+| `file_url` | string | C↔S | 文件地址。`msg_type=2` 建议必填；若前端只传 `msg`，服务端会自动把 `msg` 赋给 `file_url`。 |
+| `file_name` | string | C↔S | 文件名，`msg_type=2` 建议传，便于前端展示。 |
+| `timestamp` | int64 | S→C | 服务端生成的毫秒时间戳，回推时附带。 |
+
+> `ChatMsg`（历史记录里的结构体）字段名略有不同：`context` 对应 `msg`，`create_time` 对应 `timestamp`。
+
+---
+
+## 3. 客户端 → 服务端：`msg` 事件
+
+### 3.1 发送文本消息（`msg_type = 1`）
+
+```json
+{
+  "type": "private",
+  "receiver_id": 1024,
+  "msg_type": 1,
+  "msg": "你好呀"
+}
+```
+
+```ts
+socket.emit("msg", {
+  type: "private",
+  receiver_id: 1024,
+  msg_type: 1,
+  msg: "你好呀",
+});
+```
+
+**规则**
+- `receiver_id` 为 0 或 `msg` 为空字符串时，服务端会静默丢弃，不会回 ack。
+- 成功落盘到 Kafka 后，服务端会向发送方回推 `type=ack` 的 `message` 事件。
+
+### 3.2 发送文件消息（`msg_type = 2`）
+
+文件本身需先通过对应的文件上传接口上传，拿到文件 URL 后再通过 Socket.IO 发送元数据：
+
+```json
+{
+  "type": "private",
+  "receiver_id": 1024,
+  "msg_type": 2,
+  "msg": "https://cdn.example.com/f/abc.png",
+  "file_url": "https://cdn.example.com/f/abc.png",
+  "file_name": "abc.png"
+}
+```
+
+```ts
+socket.emit("msg", {
+  type: "private",
+  receiver_id: 1024,
+  msg_type: 2,
+  msg: fileUrl,        // 兼容老版本，和 file_url 保持一致即可
+  file_url: fileUrl,
+  file_name: fileName,
+});
+```
+
+**规则**
+- `msg_type=2` 时，`msg` 和 `file_url` 至少有一个非空；否则服务端会记录警告并丢弃。
+- 服务端会自动把两者互补（缺的那一项用另一项填上）。
+- `file_name` 仅用于前端展示，不影响后端流转。
+
+---
+
+## 4. 服务端 → 客户端：`message` 事件
+
+**同一个事件名 `message`** 承载两种场景，通过 `type` 区分。
+
+### 4.1 回执 ack（给发送方）
+
+发送成功后，发送方收到：
+
+```json
+{
+  "type": "ack",
+  "receiver_id": 1024,
+  "msg": "ok",
+  "msg_type": 1,
+  "timestamp": 1734567890123
+}
+```
+
+> `timestamp` 与你本次发出消息的落库时间一致，可用于前端把"发送中"气泡切到"已送达"。
+
+### 4.2 私聊消息推送（给接收方）
+
+```json
+{
+  "type": "private",
+  "sender_id": 2048,
+  "receiver_id": 1024,
+  "msg_type": 1,
+  "msg": "你好呀",
+  "timestamp": 1734567890123
+}
+```
+
+文件消息则多带 `file_url` / `file_name`：
+
+```json
+{
+  "type": "private",
+  "sender_id": 2048,
+  "receiver_id": 1024,
+  "msg_type": 2,
+  "msg": "https://cdn.example.com/f/abc.png",
+  "file_url": "https://cdn.example.com/f/abc.png",
+  "file_name": "abc.png",
+  "timestamp": 1734567890123
+}
+```
+
+### 4.3 前端建议的统一处理
+
+```ts
+socket.on("message", (raw: WsMsg) => {
+  switch (raw.type) {
+    case "ack":
+      markAsDelivered(raw.timestamp);
+      break;
+    case "private":
+      if (raw.msg_type === 1) appendText(raw);
+      if (raw.msg_type === 2) appendFile(raw);
+      break;
+  }
+});
+```
+
+---
+
+## 5. 断开连接
+
+- 前端主动离线：`socket.disconnect()`。
+- 服务端会在 `disconnect` 回调里调用 `client.Close()`，从在线表里移除。
+- 建议前端对 `disconnect` 事件做重连逻辑（Socket.IO 默认已有指数退避重连）。
+
+---
+
+## 6. 配套的 HTTP 接口（通过 Swagger 查看）
+
+以下接口走普通 HTTP，和 Socket.IO **配合使用**，详细参数请看 `/swagger/index.html`：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/chat/show/all` | 侧边栏会话列表（未被删除的聊天框） |
+| GET | `/chat/history?receiver_id=&page=&size=` | 拉历史消息（分页） |
+| POST | `/chat/read` | 进入会话时将对话标记为已读 |
+
+---
+
+## 7. 字段速查表（TypeScript 类型）
+
+```ts
+export interface WsMsg {
+  type: "private" | "text" | "ack";
+  msg_type: 1 | 2;
+  receiver_id: number;
+  sender_id?: number;
+  msg: string;
+  file_url?: string;
+  file_name?: string;
+  timestamp?: number;
+}
+```

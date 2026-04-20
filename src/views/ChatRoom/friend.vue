@@ -49,14 +49,22 @@ export default {
     },
     // 统一格式化好友信息
     normalizeFriendDetail (item) {
-      const gender = Number(item.gender ?? item.friend_gender) === 1 ? '女' : '男'
+      const rawGender = item.gender ?? item.friend_gender
+      let gender = item.genderText ?? item.friend_genderText ?? ''
+      if (!gender) {
+        if (rawGender === '男' || rawGender === '女') {
+          gender = rawGender
+        } else {
+          gender = Number(rawGender) === 1 ? '女' : '男'
+        }
+      }
       return {
         id: item.id ?? item.friend_id ?? '',
-        username: item.name ?? item.friend_name ?? '',
-        nickname: item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
+        username: item.username ?? item.name ?? item.friend_name ?? '',
+        nickname: item.nickname ?? item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
         gender,
         signature: item.signature ?? item.friend_signature ?? '这个人很懒，什么都没有留下',
-        avatar: item.picture ?? item.friend_picture ?? ''
+        avatar: item.avatar ?? item.picture ?? item.friend_picture ?? ''
       }
     },
 
@@ -64,18 +72,20 @@ export default {
     friendDetail (friendItem) {
       // 后端只需要id，直接取最可靠的字段
       const friendId = friendItem.friend_id ?? friendItem.id
+      const fallbackDetail = this.normalizeFriendDetail(friendItem)
+
+      // 先渲染列表已有信息，避免等待接口导致详情页卡顿
+      this.$store.commit('setCurrentFriendDetail', fallbackDetail)
 
       this.$axios.post('/api/contact/friend/main', { friend_id: friendId })
         .then(res => {
           // 自动兼容后端返回的各种结构
           const data = res.data?.friend ?? res.data?.data ?? res.data ?? {}
-          const detail = this.normalizeFriendDetail({ ...friendItem, ...data })
+          const detail = this.normalizeFriendDetail({ ...fallbackDetail, ...data })
           this.$store.commit('setCurrentFriendDetail', detail)
         })
         .catch(() => {
-          // 失败直接用列表数据兜底
-          const detail = this.normalizeFriendDetail(friendItem)
-          this.$store.commit('setCurrentFriendDetail', detail)
+          // 已有兜底渲染，这里保持静默即可
         })
     }
   },

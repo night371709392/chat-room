@@ -18,7 +18,7 @@
       </div>
       
       <!-- 好友列表渲染 -->
-      <div class="item" @click="setSubStatus('friend'); friendDetail(item.friend_id)" v-for="item in friendList" :key="item.friend_id">
+      <div class="item" @click="setSubStatus('friend'); friendDetail(item)" v-for="item in friendList" :key="item.friend_id">
         <div class="head-image">
           <img :src="item.friend_picture" alt="">
         </div>
@@ -47,16 +47,36 @@ export default {
       this.$store.commit('setChatSubStatus', status)
       // console.log('当前聊天子状态:', this.$store.state.chatSubStatus)
     },
-    friendDetail (id) {
-      this.$axios({
-        url: '/api/contact/friend/main',
-        method: 'post',
-        data: {
-          friend_id: id
-        }
-      }).then(res => {
-        console.log(res)
-      })
+    // 统一格式化好友信息
+    normalizeFriendDetail (item) {
+      const gender = Number(item.gender ?? item.friend_gender) === 1 ? '女' : '男'
+      return {
+        id: item.id ?? item.friend_id ?? '',
+        username: item.name ?? item.friend_name ?? '',
+        nickname: item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
+        gender,
+        signature: item.signature ?? item.friend_signature ?? '这个人很懒，什么都没有留下',
+        avatar: item.picture ?? item.friend_picture ?? ''
+      }
+    },
+
+    // 获取好友详情
+    friendDetail (friendItem) {
+      // 后端只需要id，直接取最可靠的字段
+      const friendId = friendItem.friend_id ?? friendItem.id
+
+      this.$axios.post('/api/contact/friend/main', { friend_id: friendId })
+        .then(res => {
+          // 自动兼容后端返回的各种结构
+          const data = res.data?.friend ?? res.data?.data ?? res.data ?? {}
+          const detail = this.normalizeFriendDetail({ ...friendItem, ...data })
+          this.$store.commit('setCurrentFriendDetail', detail)
+        })
+        .catch(() => {
+          // 失败直接用列表数据兜底
+          const detail = this.normalizeFriendDetail(friendItem)
+          this.$store.commit('setCurrentFriendDetail', detail)
+        })
     }
   },
 }

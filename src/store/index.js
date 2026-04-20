@@ -26,6 +26,7 @@ const store = new Vuex.Store({
     userPictureId: default_avatar.id, // 用户头像ID
     userSignature: '', // 用户个性签名
     userFriendList: [], // 用户好友列表
+    currentFriendDetail: null, // 当前选中的好友详情
 
     // 选择的头像信息
     selectedAvatarId: null,
@@ -73,6 +74,9 @@ const store = new Vuex.Store({
     },
     setUserFriendList (state, friendList) {
       state.userFriendList = friendList
+    },
+    setCurrentFriendDetail (state, friendDetail) {
+      state.currentFriendDetail = friendDetail
     }
   }
 })

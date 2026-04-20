@@ -8,8 +8,10 @@
 
     <NewFriend v-show="showNewFriend"></NewFriend>
 
-    <!-- 右侧内容区：聊天页展示 notice/friend，其它页面保持原有 setting 子路由 -->
-    <router-view name="setting" class="setting-view"></router-view>
+    <friendDetail v-show="showFriendDetail"></friendDetail>
+
+    <!-- 右侧内容区：设置页保持原有 setting 子路由 -->
+    <router-view v-show="showSettingView" name="setting" class="setting-view"></router-view>
 
     <AddFriend v-show="$store.state.addFriendPage"></AddFriend>
     <CreateGroup v-show="$store.state.createGroupPage"></CreateGroup>
@@ -27,6 +29,7 @@ import FriendChat from '@/components/friend.vue'
 import NewFriend from '@/components/NewFriend.vue'
 import ChatNote from '@/components/ChatNote.vue'
 import Avatar from '@/components/Avatar.vue'
+import friendDetail from '@/components/friendDetail.vue'
 
 export default {
   name: 'ChatRoom',
@@ -37,7 +40,8 @@ export default {
     FriendChat,
     NewFriend,
     ChatNote,
-    Avatar
+    Avatar,
+    friendDetail
   },
   computed: {
     showFriendChat () {
@@ -45,6 +49,12 @@ export default {
     },
     showNewFriend () {
       return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'newfriend'
+    },
+    showFriendDetail () {
+      return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'friend'
+    },
+    showSettingView () {
+      return this.$route.path.indexOf('/chathome/setting') === 0
     }
   },
   created () {

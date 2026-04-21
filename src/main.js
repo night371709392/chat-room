@@ -3,6 +3,9 @@ import App from './App.vue'
 import router from './router/index'
 import axios from 'axios'
 import store from '@/store/index'
+import socketService from '@/utils/socket'
+
+socketService.connect()
 
 import { Tabbar, TabbarItem, Icon, Toast, Popup, Cell, Switch, IndexBar, IndexAnchor, Badge } from 'vant'
 
@@ -46,6 +49,8 @@ axios.interceptors.response.use(
 
 Vue.prototype.$axios = axios
 Vue.config.productionTip = false
+Vue.prototype.$socket = socketService
+
 
 new Vue({
   render: h => h(App),

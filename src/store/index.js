@@ -25,9 +25,10 @@ const store = new Vuex.Store({
     userPicture: default_avatar.url, // 用户头像URL
     userPictureId: default_avatar.id, // 用户头像ID
     userSignature: '', // 用户个性签名
-    userFriendList: [], // 用户好友列表
+
+    userFriendList: [], // 用户好友列表，用来保存用户通讯录的好友
     currentFriendDetail: null, // 当前选中的好友详情
-    chatFriendList: [], // 已打开的聊天会话好友列表
+    chatFriendList: [], // 聊天会话好友列表
     currentChatFriendId: null, // 当前聊天会话好友id
 
     // 选择的头像信息
@@ -94,6 +95,9 @@ const store = new Vuex.Store({
     },
     setCurrentChatFriendId (state, friendId) {
       state.currentChatFriendId = friendId
+    },
+    setChatFriendList (state, list) {
+      state.chatFriendList = Array.isArray(list) ? list : []
     }
   }
 })

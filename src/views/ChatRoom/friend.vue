@@ -18,7 +18,7 @@
       </div>
       
       <!-- 好友列表渲染 -->
-      <div class="item" @click="setSubStatus('friend'); friendDetail(item)" v-for="item in friendList" :key="item.friend_id">
+      <div class="item" @click="selectFriendDetail(item)" v-for="item in friendList" :key="item.friend_id">
         <div class="head-image">
           <img :src="item.friend_picture" alt="">
         </div>
@@ -34,9 +34,20 @@
 <script>
 export default {
   name: 'FriendPage',
+  data () {
+    return {
+      friendDetailAbortController: null
+    }
+  },
   computed: {
     friendList () {
       return this.$store.state.userFriendList
+    }
+  },
+  beforeDestroy () {
+    if (this.friendDetailAbortController) {
+      this.friendDetailAbortController.abort()
+      this.friendDetailAbortController = null
     }
   },
   methods: {
@@ -68,24 +79,35 @@ export default {
       }
     },
 
-    // 获取好友详情
-    friendDetail (friendItem) {
-      // 后端只需要id，直接取最可靠的字段
+    selectFriendDetail (friendItem) {
+      if (this.$store.state.chatSubStatus !== 'friend') {
+        this.$store.commit('setChatSubStatus', 'friend')
+      }
+      this.loadFriendDetail(friendItem)
+    },
+
+    // 获取好友详情（快速切换时取消未完成请求，避免旧响应覆盖新选中好友）
+    loadFriendDetail (friendItem) {
+      if (this.friendDetailAbortController) {
+        this.friendDetailAbortController.abort()
+      }
+      const controller = new AbortController()
+      this.friendDetailAbortController = controller
+
       const friendId = friendItem.friend_id ?? friendItem.id
       const fallbackDetail = this.normalizeFriendDetail(friendItem)
 
-      // 先渲染列表已有信息，避免等待接口导致详情页卡顿
       this.$store.commit('setCurrentFriendDetail', fallbackDetail)
 
-      this.$axios.post('/api/contact/friend/main', { friend_id: friendId })
+      this.$axios.post('/api/contact/friend/main', { friend_id: friendId }, { signal: controller.signal })
         .then(res => {
-          // 自动兼容后端返回的各种结构
+          if (controller.signal.aborted) return
           const data = res.data?.friend ?? res.data?.data ?? res.data ?? {}
           const detail = this.normalizeFriendDetail({ ...fallbackDetail, ...data })
           this.$store.commit('setCurrentFriendDetail', detail)
         })
-        .catch(() => {
-          // 已有兜底渲染，这里保持静默即可
+        .catch((err) => {
+          if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') return
         })
     }
   },

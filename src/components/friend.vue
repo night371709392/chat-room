@@ -10,11 +10,6 @@
       </div>
       <Message></Message>
       <Message></Message>
-      <Message></Message>
-      <Message></Message>
-      <Message></Message>
-      <Message></Message>
-      <Message></Message>
     </div>
     <ChatContent></ChatContent>
   </div>

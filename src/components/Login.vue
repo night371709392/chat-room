@@ -34,6 +34,7 @@
 <script>
 import { Toast } from 'vant'
 import socketService from '@/utils/socket'
+import { hydrateUserIdFromToken } from '@/utils/jwtUserId'
 
 export default {
   name: 'LoginPage',
@@ -86,6 +87,7 @@ export default {
       }).then(res => {
         if (res.data.msg === "success") {
           sessionStorage.setItem('token', res.data.token)
+          hydrateUserIdFromToken(res.data)
           socketService.connect()
           Toast("登录成功")
           this.$router.push('/chathome')

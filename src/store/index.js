@@ -11,6 +11,41 @@ import {
 
 Vue.use(Vuex)
 
+/** userId 尚未写入时暂存私聊 WS，setUserId 后按序回放 */
+const MAX_PENDING_PRIVATE_WS = 50
+const pendingPrivateRawQueue = []
+
+function applyChatIncomingPrivate (state, raw, userId) {
+  const me = userId != null && userId !== '' ? Number(userId) : NaN
+  if (!Number.isFinite(me)) return
+  const norm = normalizeIncomingPrivate(raw)
+  if (!norm) return
+  const peerId = conversationPeerId(me, norm)
+  if (!Number.isFinite(peerId)) {
+    console.warn('[chatIncomingPrivate] 无法解析会话对方 id，请检查 WS 字段名', raw)
+    return
+  }
+  const friendKey = String(peerId)
+  const outgoing = Number.isFinite(me) &&
+    Number.isFinite(norm.sender_id) &&
+    norm.sender_id === me
+  const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : Date.now()
+  const id = `in-${ts}-${Math.random().toString(36).slice(2, 9)}`
+  const row = {
+    id,
+    outgoing,
+    pending: false,
+    failed: false,
+    msg_type: norm.msg_type || 1,
+    msg: norm.msg || '',
+    file_url: norm.file_url || '',
+    file_name: norm.file_name || '',
+    timestamp: ts
+  }
+  const prev = state.messagesByFriend[friendKey] || []
+  Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
+}
+
 // 默认头像信息
 const default_avatar = {
   id: 1,
@@ -114,15 +149,28 @@ const store = new Vuex.Store({
     setUserId (state, id) {
       if (id === null || id === undefined || id === '') {
         state.userId = null
+        pendingPrivateRawQueue.length = 0
         return
       }
       const n = Number(id)
       state.userId = Number.isFinite(n) ? n : null
+      if (!Number.isFinite(state.userId)) {
+        pendingPrivateRawQueue.length = 0
+        return
+      }
+      const uid = state.userId
+      if (pendingPrivateRawQueue.length) {
+        const batch = pendingPrivateRawQueue.splice(0, pendingPrivateRawQueue.length)
+        for (const raw of batch) {
+          applyChatIncomingPrivate(state, raw, uid)
+        }
+      }
     },
     setSocketConnected (state, v) {
       state.socketConnected = !!v
     },
     clearChatSession (state) {
+      pendingPrivateRawQueue.length = 0
       state.userId = null
       state.messagesByFriend = {}
       state.socketConnected = false
@@ -178,32 +226,13 @@ const store = new Vuex.Store({
     },
     chatIncomingPrivate (state, { raw, userId }) {
       const me = userId != null && userId !== '' ? Number(userId) : NaN
-      const norm = normalizeIncomingPrivate(raw)
-      if (!norm) return
-      const peerId = conversationPeerId(me, norm)
-      if (!Number.isFinite(peerId)) {
-        console.warn('[chatIncomingPrivate] 无法解析会话对方 id，请检查 WS 字段名', raw)
+      if (!Number.isFinite(me)) {
+        if (pendingPrivateRawQueue.length < MAX_PENDING_PRIVATE_WS) {
+          pendingPrivateRawQueue.push(raw)
+        }
         return
       }
-      const friendKey = String(peerId)
-      const outgoing = Number.isFinite(me) &&
-        Number.isFinite(norm.sender_id) &&
-        norm.sender_id === me
-      const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : Date.now()
-      const id = `in-${ts}-${Math.random().toString(36).slice(2, 9)}`
-      const row = {
-        id,
-        outgoing,
-        pending: false,
-        failed: false,
-        msg_type: norm.msg_type || 1,
-        msg: norm.msg || '',
-        file_url: norm.file_url || '',
-        file_name: norm.file_name || '',
-        timestamp: ts
-      }
-      const prev = state.messagesByFriend[friendKey] || []
-      Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
+      applyChatIncomingPrivate(state, raw, userId)
     },
     /**
      * 合并服务端历史与本地未同步气泡，避免拉历史覆盖掉已收到的 WS 消息

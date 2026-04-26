@@ -5,8 +5,10 @@ import router from './router/index'
 import axios from 'axios'
 import store from '@/store/index'
 import socketService from '@/utils/socket'
+import { hydrateUserIdFromToken } from '@/utils/jwtUserId'
 
 if (sessionStorage.getItem('token')) {
+  hydrateUserIdFromToken()
   socketService.connect()
 }
 

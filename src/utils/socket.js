@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client'
 import store from '@/store'
+import { hydrateUserIdFromToken } from '@/utils/jwtUserId'
 
 /**
  * Socket.IO v4 私聊（见 src/md.txt、src/ymal.txt）
@@ -86,6 +87,8 @@ class SocketService {
       return
     }
     this._destroySocket()
+
+    hydrateUserIdFromToken()
 
     const url = resolveSocketBaseUrl()
     this.socket = io(url, {

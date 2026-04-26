@@ -72,8 +72,7 @@ class SocketService {
     this.socket.on('disconnect', () => {
       store.commit('setSocketConnected', false)
     })
-    this.socket.on('connect_error', err => {
-      console.warn('[socket] connect_error', err && err.message)
+    this.socket.on('connect_error', () => {
       store.commit('setSocketConnected', false)
     })
   }

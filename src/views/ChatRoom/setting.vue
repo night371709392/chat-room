@@ -1,23 +1,23 @@
 <template>
   <div class="setting">
     <div>
-      <i class="iconfont icon-moban"></i>
+      <i class="ri ri-layout-grid-line"></i>
       <router-link to="/chathome/setting/information" class="setting-link" exact>个人资料</router-link>
     </div>
     <div>
-      <i class="iconfont icon-shezhi"></i>
+      <i class="ri ri-settings-3-line"></i>
       <router-link to="/chathome/setting/user" class="setting-link" exact>用户设置</router-link>
     </div>
     <div>
-      <i class="iconfont icon-shouji"></i>
+      <i class="ri ri-smartphone-line"></i>
       <router-link to="/chathome/setting/phone" class="setting-link" exact>绑定手机</router-link>
     </div>
     <div>
-      <i class="iconfont icon-youxiang"></i>
+      <i class="ri ri-mail-line"></i>
       <router-link to="/chathome/setting/email" class="setting-link" exact>修改邮箱</router-link>
     </div>
     <div>
-      <i class="iconfont icon-mima"></i>
+      <i class="ri ri-lock-password-line"></i>
       <router-link to="/chathome/setting/password" class="setting-link" exact>修改密码</router-link>
     </div>
   </div>
@@ -35,11 +35,14 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  width: 20px;
-  height: 20px;
+.setting > div > .ri {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 20px;
-  color: skyblue;
+  color: #5b8ff9;
 }
 .setting {
   width: 260px;

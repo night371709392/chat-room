@@ -15,7 +15,7 @@
   </div>
 </template>
 
-<script scoped>
+<script>
 import ContactItem from '@/components/ContactItem.vue'
 
 export default {
@@ -86,63 +86,7 @@ export default {
   flex: 1;
   max-height: calc(100vh - 60px);
   overflow-y: auto;
+  padding: 4px 0 8px;
 }
-.chat .list .message .item {
-  height: 64px;
-  display: flex;
-  position: relative;
-  margin: 0 3px;
-  padding: 5px 8px;
-  align-items: center;
-  white-space: nowrap;
-  cursor: pointer;
-  border-radius: 10px;
-  user-select: none;
-}
-.chat .list .message .item:hover {
-  background-color: #e8f3ff;
-}
-.chat .list .message .item .head-image {
-  width: 45px;
-  height: 45px;
-}
-.chat .list .message .item .head-image img {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-}
-.chat .list .message .item .right {
-  height: 50px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-  padding-left: 10px;
-  text-align: left;
-  overflow: hidden;
-}
-.chat .list .message .item .right .name-text {
-  display: flex;
-  justify-content: space-between;
-}
-.chat .list .message .item .right .name-text p {
-  font-size: 14px;
-  color: black;
-}
-.chat .list .message .item .right .name-text span {
-  font-size: 12px;
-  color: #808080;
-}
-.chat .list .message .item .right .content-text {
-  font-size: 12px;
-  color: #808080;
-  overflow: hidden;
-}
-.item.active {
-  background-color: #e8f3ff !important;
-  border-left: 3px solid #2830d3;
-}
-.item:hover {
-  background-color: #f5f7fa;
-  cursor: pointer;
-}
+/* 会话行与选中态样式在 ContactItem.vue */
 </style>

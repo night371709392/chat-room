@@ -12,6 +12,12 @@ module.exports = defineConfig({
         ws: true,
         pathRewrite: {'^/api': ''},
         secure: false // 忽略HTTPS证书错误（本地开发用）
+      },
+      // Socket.IO（与 md.txt / ymal.txt 一致，path 默认 /socket.io/）
+      '/socket.io': {
+        target: 'http://192.168.0.158:8081',
+        changeOrigin: true,
+        ws: true
       }
     }
   }

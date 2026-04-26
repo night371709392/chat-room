@@ -13,7 +13,7 @@
         <div class="search-wrapper">
           <input type="text" placeholder="搜索聊天记录">
           <div class="search">
-            <i class="iconfont icon-sousuo"></i>
+            <i class="ri ri-search-line"></i>
           </div>
         </div>
         <div class="el-tabs">
@@ -143,9 +143,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 24px;
-  color: black;
+.search .ri {
+  font-size: 22px;
+  color: #606266;
 }
 .header {
   height: 48px;

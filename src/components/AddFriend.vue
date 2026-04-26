@@ -13,7 +13,7 @@
         <div class="search-wrapper">
           <input type="text" placeholder="ID/昵称/手机号/邮箱,最多展示20条" v-model="text">
           <div class="search" @click="SearchFriend">
-            <i class="iconfont icon-sousuo"></i>
+            <i class="ri ri-search-line"></i>
           </div>
         </div>
         <div class="list">
@@ -140,9 +140,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 24px;
-  color: black;
+.search .ri {
+  font-size: 22px;
+  color: #606266;
 }
 .header {
   height: 48px;

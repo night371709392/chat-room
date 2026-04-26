@@ -8,40 +8,42 @@
             <li title="消息">
                 <router-link to="/chathome/chat">
                   <van-badge dot>
-                    <i class="iconfont icon-xiaoxi"></i>
+                    <i class="ri ri-message-3-line"></i>
                   </van-badge>
                 </router-link>
             </li>
             <li title="朋友">
                 <router-link to="/chathome/friend">
                   <van-badge dot>
-                    <i class="iconfont icon-pengyou"></i>
+                    <i class="ri ri-user-heart-line"></i>
                   </van-badge>
                 </router-link>
             </li>
             <li title="群聊">
                 <router-link to="/chathome/group">
                   <van-badge dot>
-                    <i class="iconfont icon-tongxunlu"></i>
+                    <i class="ri ri-team-line"></i>
                   </van-badge>
                 </router-link>
             </li>
             <li title="设置">
                 <router-link to="/chathome/setting">
-                    <i class="iconfont icon-shezhi"></i>
+                    <i class="ri ri-settings-3-line"></i>
                 </router-link>
             </li>
         </ul>
     </div>
     <div class="nav-footer">
         <ul>
-            <li title="退出登录" @click="logout"><a href="javascript:void(0)"><i class="iconfont icon-tuichu"></i></a></li>
+            <li title="退出登录" @click="logout"><a href="javascript:void(0)"><i class="ri ri-logout-box-r-line"></i></a></li>
         </ul>
     </div>
   </div>
 </template>
 
 <script>
+import socketService from '@/utils/socket'
+
 export default {
     name: 'NavPage',
     computed: {
@@ -51,10 +53,9 @@ export default {
     },
     methods: {
       logout() {
-      // 1. 删除本地 token
       sessionStorage.removeItem('token')
-      
-      // 2. 清空 Vuex 里的所有用户信息（关键！）
+      socketService.disconnect()
+      this.$store.commit('clearChatSession')
       this.$store.commit('setUserInfo', {
         name: '',
         gender: 0,
@@ -63,8 +64,6 @@ export default {
         signature: '',
         email: ''
       })
-      
-      // 3. 跳转到登录页（必须！）
       this.$router.push('/login')
       },
       toInformation () {
@@ -124,26 +123,48 @@ a {
     margin-top: 50px;
 }
 .nav .nav-top ul li {
-    margin-top: 25px;
-    position: relative; /* 必须，为了定位左侧的竖线 */
+    margin-top: 18px;
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 .nav .nav-footer {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
-.iconfont {
-    font-size: 32px;
-    color: white;
-    transition: all 0.3s ease; /* 过渡动画，让高亮出现更平滑 */
+.nav .nav-top .ri {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.78);
+    transition: color 0.22s ease, transform 0.22s ease, filter 0.22s ease;
 }
-.router-link-active {
-    border-left: 3px solid #FFFFFF; 
-    display: flex;
+.nav .nav-top ul li > a.router-link-active {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow:
+      0 4px 18px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.nav .nav-top ul li > a.router-link-active .ri {
+    color: #fff;
+    transform: scale(1.06);
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+}
+.nav .nav-top ul li > a:not(.router-link-active):hover .ri {
+    color: #fff;
+    transform: scale(1.04);
+}
+.nav .nav-footer .ri {
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.72);
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+.nav .nav-footer li:hover .ri {
+    color: #ffb4b4;
+    transform: scale(1.05);
 }
 </style>

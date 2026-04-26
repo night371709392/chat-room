@@ -13,7 +13,7 @@
     </div>
     <div class="info">
       <div class="title">
-        <i class="iconfont icon-moban"></i>
+        <i class="ri ri-layout-grid-line"></i>
         <h4>基本信息</h4>
       </div>
       <form class="el-form">
@@ -34,7 +34,7 @@
     </div>
     <div class="phone">
       <div class="title">
-        <i class="iconfont icon-shouji"></i>
+        <i class="ri ri-smartphone-line"></i>
         <h4>联系方式</h4>
       </div>
       <form class="el-form">
@@ -52,7 +52,7 @@
     </div>
     <div class="sign">
       <div class="title">
-        <i class="iconfont icon-gexingqianming"></i>
+        <i class="ri ri-quill-pen-line"></i>
         <h4>个性签名</h4>
       </div>
       <textarea :placeholder="$store.state.userSignature || '分享你的心情和想法...'" v-model="signature"></textarea>
@@ -175,9 +175,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 16px;
-  color: skyblue;
+.information .title .ri {
+  font-size: 20px;
+  color: #5b8ff9;
 }
 .information {
   width: 814px;

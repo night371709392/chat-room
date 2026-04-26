@@ -5,7 +5,7 @@
         <div class="ipt">
           <input type="text" placeholder="搜索">
         </div>
-        <button @click="openPage"><i class="iconfont icon-jiahao"></i></button>
+        <button @click="openPage"><i class="ri ri-add-line"></i></button>
       </div>
 
       <div class="item" @click="setSubStatus('newfriend')">
@@ -171,9 +171,9 @@ export default {
   color: #EAEAFB;
   transform: scale(1.1);
 }
-.friend .list .header .iconfont {
+.friend .list .header .ri {
   color: #3458DA;
-  font-size: 16px;
+  font-size: 18px;
   font-style: normal;
 }
 .friend .list .item {

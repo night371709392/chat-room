@@ -2,7 +2,7 @@
   <div class="email">
     <div class="mail">
       <div class="title">
-        <i class="iconfont icon-youxiang"></i>
+        <i class="ri ri-mail-line"></i>
         <h4>修改邮箱</h4>
       </div>
       <div class="form">
@@ -165,9 +165,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 16px;
-  color: skyblue;
+.email .title .ri {
+  font-size: 20px;
+  color: #5b8ff9;
 }
 .email {
   width: 814px;

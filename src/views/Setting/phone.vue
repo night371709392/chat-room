@@ -2,7 +2,7 @@
   <div class="phone">
     <div class="tel">
       <div class="title">
-        <i class="iconfont icon-shouji"></i>
+        <i class="ri ri-smartphone-line"></i>
         <h4>手机号绑定</h4>
       </div>
       <div class="form">
@@ -35,9 +35,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 16px;
-  color: skyblue;
+.phone .title .ri {
+  font-size: 20px;
+  color: #5b8ff9;
 }
 .phone {
   width: 814px;

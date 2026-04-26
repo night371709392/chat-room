@@ -2,7 +2,7 @@
   <div class="user">
     <div class="privacy">
       <div class="title">
-        <i class="iconfont icon-mima"></i>
+        <i class="ri ri-lock-password-line"></i>
         <h4>隐私设置</h4>
       </div>
       <div class="setting-item">
@@ -12,7 +12,7 @@
     </div>
     <div class="inform">
       <div class="title">
-        <i class="iconfont icon-tongzhi"></i>
+        <i class="ri ri-notification-3-line"></i>
         <h4>通知设置</h4>
       </div>
       <div class="setting-item">
@@ -41,12 +41,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 16px;
-  color: skyblue;
-}
-.icon-tongzhi {
-  font-size: 24px;
+.user .title .ri {
+  font-size: 20px;
+  color: #5b8ff9;
 }
 .user {
   width: 814px;

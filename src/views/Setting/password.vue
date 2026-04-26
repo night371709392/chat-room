@@ -2,7 +2,7 @@
   <div class="password">
     <div class="word">
       <div class="title">
-        <i class="iconfont icon-mima"></i>
+        <i class="ri ri-lock-password-line"></i>
         <h4>修改密码</h4>
       </div>
       <div class="form">
@@ -162,9 +162,9 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 16px;
-  color: skyblue;
+.password .title .ri {
+  font-size: 20px;
+  color: #5b8ff9;
 }
 .password {
   width: 814px;

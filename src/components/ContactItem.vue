@@ -52,16 +52,17 @@ export default {
   height: 64px;
   display: flex;
   position: relative;
-  margin: 0 3px;
-  padding: 5px 8px;
+  margin: 2px 6px;
+  padding: 6px 10px 6px 12px;
   align-items: center;
   white-space: nowrap;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 12px;
   user-select: none;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
-.item:hover {
-  background-color: #e8f3ff;
+.item:hover:not(.active) {
+  background-color: #f0f4fa;
 }
 .item .head-image {
   width: 45px;
@@ -99,11 +100,23 @@ export default {
   overflow: hidden;
 }
 .item.active {
-  background-color: #e8f3ff !important;
-  border-left: 3px solid #2830d3;
+  background: linear-gradient(105deg, rgba(66, 103, 214, 0.14) 0%, rgba(66, 103, 214, 0.05) 52%, rgba(255, 255, 255, 0) 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(66, 103, 214, 0.22);
 }
-.item:hover {
-  background-color: #f5f7fa;
-  cursor: pointer;
+.item.active::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 30px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #5b73e8 0%, #3d52d4 100%);
+  box-shadow: 0 2px 10px rgba(61, 82, 212, 0.45);
+}
+.item.active .right .name-text p {
+  color: #1a1d24;
+  font-weight: 600;
 }
 </style>

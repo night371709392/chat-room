@@ -1,11 +1,14 @@
 import Vue from 'vue'
+import 'remixicon/fonts/remixicon.css'
 import App from './App.vue'
 import router from './router/index'
 import axios from 'axios'
 import store from '@/store/index'
 import socketService from '@/utils/socket'
 
-socketService.connect()
+if (sessionStorage.getItem('token')) {
+  socketService.connect()
+}
 
 import { Tabbar, TabbarItem, Icon, Toast, Popup, Cell, Switch, IndexBar, IndexAnchor, Badge } from 'vant'
 
@@ -38,8 +41,9 @@ axios.interceptors.response.use(
   res => res,
   err => {
     if (err.response && err.response.status === 401) {
-      // 登录过期
       sessionStorage.removeItem('token')
+      socketService.disconnect()
+      store.commit('clearChatSession')
       Toast('登录已过期，请重新登录')
       router.push('/login')
     }

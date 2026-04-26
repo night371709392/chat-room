@@ -71,14 +71,19 @@ export default {
       method: 'post'
     }).then(res => {
       if (res.data.err === "success") {
+        const u = res.data.user
         this.$store.commit('setUserInfo', {
-          name: res.data.user.name,
-          gender: res.data.user.gender,
-          picture: res.data.user.picture,
-          pictureId: res.data.user.picture_id ?? res.data.user.pictureId,
-          signature: res.data.user.signature,
-          email: res.data.user.email
+          name: u.name,
+          gender: u.gender,
+          picture: u.picture,
+          pictureId: u.picture_id ?? u.pictureId,
+          signature: u.signature,
+          email: u.email
         })
+        const uid = u.id ?? u.user_id ?? u.userId
+        if (uid !== undefined && uid !== null && uid !== '') {
+          this.$store.commit('setUserId', uid)
+        }
       }
     })
     // 获取当前用户的通讯录好友 

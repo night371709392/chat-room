@@ -2,14 +2,17 @@
   <div class="friend">
     <div class="header">
       <span>{{ friendName }}</span>
-      <span><i class="iconfont icon-gengduo"></i></span>
+      <span><i class="ri ri-more-2-line"></i></span>
     </div>
-    <div class="main">
+    <div class="main" ref="mainScroll">
       <div class="message-tip">
         你们已成为好友，现在可以开始聊天了
       </div>
-      <Message></Message>
-      <Message></Message>
+      <Message
+        v-for="row in currentMessages"
+        :key="row.id"
+        :item="row"
+      />
     </div>
     <ChatContent></ChatContent>
   </div>
@@ -26,6 +29,9 @@ export default {
     ChatContent
   },
   computed: {
+    currentChatFriendId () {
+      return this.$store.state.currentChatFriendId
+    },
     currentChatFriend () {
       const currentId = this.$store.state.currentChatFriendId
       if (currentId === null || currentId === undefined) return null
@@ -34,6 +40,42 @@ export default {
     friendName () {
       if (!this.currentChatFriend) return '聊天'
       return this.currentChatFriend.username || this.currentChatFriend.nickname || '聊天'
+    },
+    currentMessages () {
+      const id = this.$store.state.currentChatFriendId
+      if (id === null || id === undefined || id === '') return []
+      return this.$store.state.messagesByFriend[String(id)] || []
+    }
+  },
+  watch: {
+    '$store.state.userId' (n, o) {
+      const id = this.currentChatFriendId
+      if (id == null || id === '') return
+      if (n != null && n !== '' && (o == null || o === '')) {
+        this.$store.dispatch('fetchChatHistory', { friendId: id })
+      }
+    },
+    currentChatFriendId: {
+      immediate: true,
+      handler (id) {
+        if (id === null || id === undefined || id === '') return
+        this.$store.dispatch('fetchChatHistory', { friendId: id })
+        this.$store.dispatch('markChatRead', { friendId: id })
+        this.$nextTick(() => this.scrollToBottom())
+      }
+    },
+    currentMessages: {
+      deep: true,
+      handler () {
+        this.$nextTick(() => this.scrollToBottom())
+      }
+    }
+  },
+  methods: {
+    scrollToBottom () {
+      const el = this.$refs.mainScroll
+      if (!el) return
+      el.scrollTop = el.scrollHeight
     }
   }
 }
@@ -45,13 +87,13 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.iconfont {
-  font-size: 25px;
-  color: black;
+.friend .header .ri {
+  font-size: 24px;
+  color: #303133;
 }
 .friend {
   flex: 1;
-  height: 100vh; 
+  height: 100vh;
   max-height: 100vh;
   display: flex;
   flex-direction: column;

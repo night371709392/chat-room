@@ -1,5 +1,13 @@
 import Vue from "vue"
 import Vuex from "vuex"
+import axios from "axios"
+import {
+  normalizeIncomingPrivate,
+  conversationPeerId,
+  normalizeHistoryRow,
+  isHistorySuccess,
+  extractHistoryList
+} from "@/utils/imPayload"
 
 Vue.use(Vuex)
 
@@ -30,6 +38,10 @@ const store = new Vuex.Store({
     currentFriendDetail: null, // 当前选中的好友详情
     chatFriendList: [], // 聊天会话好友列表
     currentChatFriendId: null, // 当前聊天会话好友id
+
+    userId: null, // 当前登录用户 id（用于区分收发、对齐历史记录）
+    messagesByFriend: {}, // { [friendId]: ChatBubble[] }
+    socketConnected: false,
 
     // 选择的头像信息
     selectedAvatarId: null,
@@ -98,6 +110,150 @@ const store = new Vuex.Store({
     },
     setChatFriendList (state, list) {
       state.chatFriendList = Array.isArray(list) ? list : []
+    },
+    setUserId (state, id) {
+      if (id === null || id === undefined || id === '') {
+        state.userId = null
+        return
+      }
+      const n = Number(id)
+      state.userId = Number.isFinite(n) ? n : null
+    },
+    setSocketConnected (state, v) {
+      state.socketConnected = !!v
+    },
+    clearChatSession (state) {
+      state.userId = null
+      state.messagesByFriend = {}
+      state.socketConnected = false
+    },
+    appendPendingOutMessage (state, { friendId, msg, tempId, msg_type = 1, file_url = '', file_name = '' }) {
+      const key = String(friendId)
+      const prev = state.messagesByFriend[key] || []
+      const row = {
+        id: tempId,
+        outgoing: true,
+        pending: true,
+        failed: false,
+        msg_type,
+        msg: msg != null ? String(msg) : '',
+        file_url: file_url != null ? String(file_url) : '',
+        file_name: file_name != null ? String(file_name) : '',
+        timestamp: null
+      }
+      Vue.set(state.messagesByFriend, key, prev.concat(row))
+    },
+    chatMessageAck (state, { receiver_id, timestamp, msg_type }) {
+      if (receiver_id === null || receiver_id === undefined || receiver_id === '') return
+      const key = String(receiver_id)
+      const list = state.messagesByFriend[key]
+      if (!list || !list.length) return
+      const matchType = msg_type != null ? Number(msg_type) : null
+      const idx = list.findIndex(m => {
+        if (!m.outgoing || !m.pending || m.failed) return false
+        if (matchType == null || Number.isNaN(matchType)) return true
+        return Number(m.msg_type) === matchType
+      })
+      if (idx === -1) return
+      const cur = list[idx]
+      const next = {
+        ...cur,
+        pending: false,
+        timestamp: timestamp != null ? Number(timestamp) : cur.timestamp
+      }
+      const nextList = list.slice()
+      nextList[idx] = next
+      Vue.set(state.messagesByFriend, key, nextList)
+    },
+    chatMessageSendFailed (state, { friendId, tempId }) {
+      const key = String(friendId)
+      const list = state.messagesByFriend[key]
+      if (!list) return
+      const idx = list.findIndex(m => m.id === tempId)
+      if (idx === -1) return
+      const cur = list[idx]
+      const nextList = list.slice()
+      nextList[idx] = { ...cur, pending: false, failed: true }
+      Vue.set(state.messagesByFriend, key, nextList)
+    },
+    chatIncomingPrivate (state, { raw, userId }) {
+      const me = userId != null && userId !== '' ? Number(userId) : NaN
+      const norm = normalizeIncomingPrivate(raw)
+      if (!norm) return
+      const peerId = conversationPeerId(me, norm)
+      if (!Number.isFinite(peerId)) {
+        console.warn('[chatIncomingPrivate] 无法解析会话对方 id，请检查 WS 字段名', raw)
+        return
+      }
+      const friendKey = String(peerId)
+      const outgoing = Number.isFinite(me) &&
+        Number.isFinite(norm.sender_id) &&
+        norm.sender_id === me
+      const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : Date.now()
+      const id = `in-${ts}-${Math.random().toString(36).slice(2, 9)}`
+      const row = {
+        id,
+        outgoing,
+        pending: false,
+        failed: false,
+        msg_type: norm.msg_type || 1,
+        msg: norm.msg || '',
+        file_url: norm.file_url || '',
+        file_name: norm.file_name || '',
+        timestamp: ts
+      }
+      const prev = state.messagesByFriend[friendKey] || []
+      Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
+    },
+    /**
+     * 合并服务端历史与本地未同步气泡，避免拉历史覆盖掉已收到的 WS 消息
+     */
+    setFriendMessagesFromHistory (state, { friendId, messages }) {
+      const key = String(friendId)
+      const serverSorted = (messages || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      const existing = state.messagesByFriend[key] || []
+      const rowKey = m => `${m.timestamp}|${m.outgoing ? 1 : 0}|${(m.msg || '').slice(0, 120)}`
+      const serverKeys = new Set(serverSorted.map(rowKey))
+      const extras = existing.filter(m => {
+        if (m.pending) return true
+        if (m.failed) return true
+        const id = m.id != null ? String(m.id) : ''
+        if (id.startsWith('in-') || id.startsWith('p-')) {
+          return !serverKeys.has(rowKey(m))
+        }
+        return false
+      })
+      const merged = serverSorted.concat(extras).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      Vue.set(state.messagesByFriend, key, merged)
+    }
+  },
+  actions: {
+    async fetchChatHistory ({ commit, state }, { friendId }) {
+      const fid = friendId != null ? Number(friendId) : NaN
+      if (!Number.isFinite(fid)) return
+      try {
+        const res = await axios.get('/api/chat/history', {
+          params: { receiver_id: fid, page: 1, size: 50 }
+        })
+        const data = res.data
+        if (!isHistorySuccess(data)) {
+          console.warn('[fetchChatHistory] 接口未返回 success，已跳过写入', data)
+          return
+        }
+        const rawList = extractHistoryList(data)
+        const me = state.userId != null ? Number(state.userId) : NaN
+        const normalized = rawList
+          .map((row, i) => normalizeHistoryRow(row, me, i, fid))
+          .filter(Boolean)
+        commit('setFriendMessagesFromHistory', { friendId: fid, messages: normalized })
+      } catch (e) {
+        console.warn('[fetchChatHistory]', e)
+      }
+    },
+    markChatRead (ctx, { friendId }) {
+      const fid = friendId != null ? Number(friendId) : NaN
+      if (!Number.isFinite(fid)) return Promise.resolve()
+      return axios.post('/api/chat/read', { receiver_id: fid }).catch(() => {})
     }
   }
 })

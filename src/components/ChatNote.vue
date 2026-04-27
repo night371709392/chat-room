@@ -34,78 +34,6 @@
               </div>
             </div>
           </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
-          <div class="item">
-            <div class="avater"></div>
-            <div class="message">
-              <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
-              </div>
-              <div class="bottom">
-                <span>这是一条测试消息</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </van-popup>
@@ -120,10 +48,32 @@ export default {
   components: {
     vanIcon: Icon
   },
-  data() {
+  data () {
     return {
       // 默认高亮 “全部”
-      activeTab: 'all'
+      activeTab: 'all',
+      chatNoteList: []
+    }
+  },
+  watch: {
+    '$store.state.chatNotePage' (open) {
+      if (!open) return
+      const raw = this.$store.state.currentChatFriendId
+      if (raw === null || raw === undefined || raw === '') return
+      const fid = Number(raw)
+      if (!Number.isFinite(fid)) return
+
+      this.$axios({
+        url: '/api/chat/history',
+        method: 'get',
+        params: {
+          receiver_id: fid,
+        }
+      }).then(res => {
+        if (res.data.err === 'success') {
+          this.chatNoteList = res.data.msg.msg
+        }
+      })
     }
   },
   methods: {

@@ -7,7 +7,9 @@
       <div><i title="发送文件" class="ri ri-file-upload-line"></i></div>
       <div><i title="发送语音" class="ri ri-mic-line"></i></div>
       <div><i title="通话" class="ri ri-vidicon-line"></i></div>
-      <div><i title="聊天记录" class="ri ri-chat-history-line" @click="getChatNode"></i></div>
+      <div title="聊天记录" @click="openChatNote">
+        <i class="ri ri-chat-history-line"></i>
+      </div>
     </div>
 
     <div class="main">
@@ -51,6 +53,9 @@ export default {
     }
   },
   methods: {
+    openChatNote () {
+      this.$store.commit('openChatNotePage')
+    },
     send () {
       const text = this.draft.trim()
       const fid = this.currentFriendId

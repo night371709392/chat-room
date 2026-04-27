@@ -52,6 +52,37 @@ const default_avatar = {
   url: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
 }
 
+/** 与 views/ChatRoom/friend.vue 中好友详情字段对齐 */
+function normalizeFriendDetailRow (item) {
+  if (!item || typeof item !== 'object') {
+    return {
+      id: '',
+      username: '',
+      nickname: '',
+      gender: '',
+      signature: '这个人很懒，什么都没有留下',
+      avatar: ''
+    }
+  }
+  const rawGender = item.gender ?? item.friend_gender
+  let gender = item.genderText ?? item.friend_genderText ?? ''
+  if (!gender) {
+    if (rawGender === '男' || rawGender === '女') {
+      gender = rawGender
+    } else {
+      gender = Number(rawGender) === 1 ? '女' : '男'
+    }
+  }
+  return {
+    id: item.id ?? item.friend_id ?? '',
+    username: item.username ?? item.name ?? item.friend_name ?? '',
+    nickname: item.nickname ?? item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
+    gender,
+    signature: item.signature ?? item.friend_signature ?? '这个人很懒，什么都没有留下',
+    avatar: item.avatar ?? item.picture ?? item.friend_picture ?? ''
+  }
+}
+
 const store = new Vuex.Store({
   state: {
     // 页面
@@ -283,6 +314,31 @@ const store = new Vuex.Store({
       const fid = friendId != null ? Number(friendId) : NaN
       if (!Number.isFinite(fid)) return Promise.resolve()
       return axios.post('/api/chat/read', { receiver_id: fid }).catch(() => {})
+    },
+    /** 从通讯录或会话列表拼装占位信息并拉取好友主页，供聊天气泡头像跳转详情使用 */
+    async fetchFriendDetailPanel ({ commit, state }, { friendId }) {
+      const fid = friendId != null ? Number(friendId) : NaN
+      if (!Number.isFinite(fid)) return
+
+      const fromContact = state.userFriendList.find(
+        x => String(x.friend_id ?? x.id) === String(fid)
+      )
+      const fromChat = state.chatFriendList.find(x => String(x.id) === String(fid))
+      const raw = fromContact || {
+        friend_id: fid,
+        friend_name: (fromChat && (fromChat.username || fromChat.nickname)) || '',
+        friend_picture: (fromChat && fromChat.avatar) || ''
+      }
+      const fallback = normalizeFriendDetailRow(raw)
+      commit('setCurrentFriendDetail', fallback)
+
+      try {
+        const res = await axios.post('/api/contact/friend/main', { friend_id: fid })
+        const data = res.data?.friend ?? res.data?.data ?? res.data ?? {}
+        commit('setCurrentFriendDetail', normalizeFriendDetailRow({ ...fallback, ...data, friend_id: fid }))
+      } catch (e) {
+        // 保留 fallback，静默失败
+      }
     }
   }
 })

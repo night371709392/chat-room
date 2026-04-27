@@ -1,7 +1,12 @@
 <template>
   <div class="message-box">
     <div class="message-item" :class="item.outgoing ? 'self' : 'other'">
-      <div class="avater">
+      <div
+        class="avater"
+        :class="{ 'avater-peer': !item.outgoing }"
+        role="presentation"
+        @click.stop="onAvatarClick"
+      >
         <img :src="item.outgoing ? myAvatarUrl : friendAvatarUrl" alt="头像">
       </div>
       <div class="bubble-wrap">
@@ -61,6 +66,16 @@ export default {
       const pad = n => (n < 10 ? `0${n}` : `${n}`)
       return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
+  },
+  methods: {
+    onAvatarClick () {
+      if (this.item.outgoing) return
+      const id = this.$store.state.currentChatFriendId
+      if (id === null || id === undefined || id === '') return
+      this.$store.dispatch('fetchFriendDetailPanel', { friendId: id })
+      this.$store.commit('setChatSubStatus', 'friend')
+      this.$router.push('/chathome/friend')
+    }
   }
 }
 </script>
@@ -92,6 +107,12 @@ export default {
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
+}
+.avater-peer {
+  cursor: pointer;
+}
+.avater-peer:hover {
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.35);
 }
 .message-item.self {
   flex-direction: row-reverse;

@@ -181,10 +181,11 @@ export default {
 }
 .information {
   width: 814px;
-  min-height: 100vh;
+  max-height: 100vh;
   padding: 15px;
   background: #fafbfc;
   flex: 1;
+  overflow: auto;
 }
 .information .profile-card {
   background: hsla(0, 0%, 100%, .95);
@@ -212,26 +213,6 @@ export default {
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
-}
-.avatar-preview-mask {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, .75);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  padding: 20px;
-}
-.avatar-preview-image {
-  max-width: 90vw;
-  max-height: 90vh;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
-  object-fit: contain;
 }
 .information .profile-card .user-basic-info {
   flex: 1;

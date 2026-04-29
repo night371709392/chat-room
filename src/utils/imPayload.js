@@ -8,6 +8,25 @@ function toNum (v) {
   return Number.isFinite(n) ? n : NaN
 }
 
+function toTimestampMs (v) {
+  if (v === null || v === undefined || v === '') return NaN
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return NaN
+    return v > 1e12 ? v : v * 1000
+  }
+  if (typeof v === 'string') {
+    const s = v.trim()
+    if (!s) return NaN
+    const n = Number(s)
+    if (Number.isFinite(n)) {
+      return n > 1e12 ? n : n * 1000
+    }
+    const parsed = Date.parse(s)
+    return Number.isFinite(parsed) ? parsed : NaN
+  }
+  return NaN
+}
+
 function firstNum (obj, keys) {
   if (!obj || typeof obj !== 'object') return NaN
   for (const k of keys) {
@@ -74,8 +93,16 @@ export function normalizeIncomingPrivate (raw) {
   const msg = firstStr(o, ['msg', 'Msg', 'context', 'Context', 'content', 'Content'])
   const file_url = firstStr(o, ['file_url', 'fileUrl', 'FileURL'])
   const file_name = firstStr(o, ['file_name', 'fileName', 'FileName'])
-  const tsRaw = o.timestamp ?? o.Timestamp ?? o.create_time ?? o.createTime
-  const timestamp = tsRaw != null && tsRaw !== '' ? toNum(tsRaw) : NaN
+  const tsRaw =
+    o.timestamp ??
+    o.Timestamp ??
+    o.create_time ??
+    o.createTime ??
+    o.msg_time ??
+    o.msgTime ??
+    o._client_received_at ??
+    o.time
+  const timestamp = toTimestampMs(tsRaw)
 
   return {
     type: o.type || o.Type,
@@ -85,7 +112,7 @@ export function normalizeIncomingPrivate (raw) {
     msg,
     file_url,
     file_name,
-    timestamp: Number.isFinite(timestamp) ? timestamp : Date.now()
+    timestamp: Number.isFinite(timestamp) ? timestamp : NaN
   }
 }
 
@@ -93,8 +120,8 @@ export function normalizeHistoryRow (row, me, index, friendId) {
   if (row == null || typeof row !== 'object') return null
   const senderId = firstNum(row, ['sender_id', 'senderId', 'SenderID', 'from_id', 'fromId'])
   const body = firstStr(row, ['context', 'Context', 'msg', 'Msg', 'content', 'Content'])
-  const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.time
-  const ts = toNum(tsRaw)
+  const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time
+  const ts = toTimestampMs(tsRaw)
   const msgTypeRaw = row.msg_type ?? row.msgType ?? row.MsgType
   const msgType = Number.isFinite(toNum(msgTypeRaw)) ? toNum(msgTypeRaw) : 1
   const outgoing = Number.isFinite(me) && Number.isFinite(senderId) && senderId === me

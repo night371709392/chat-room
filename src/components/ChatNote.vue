@@ -22,15 +22,19 @@
           <div class="photo" :class="{ active: activeTab === 'image' }" @click="setTab('image')">图片</div>
         </div>
         <div class="content">
-          <div class="item">
-            <div class="avater"></div>
+          <div v-if="loading" class="state-tip">加载中...</div>
+          <div v-else-if="!displayList.length" class="state-tip">暂无聊天记录</div>
+          <div class="item" v-for="item in displayList" :key="item.id">
+            <div class="avater">
+              <img :src="item.user_picture" alt="">
+            </div>
             <div class="message">
               <div class="top">
-                <span class="name">露芜衣</span>
-                <span class="time">2024-06-01 12:00</span>
+                <span class="name">{{ item.user_name }}</span>
+                <span class="time">{{ item.time_string }}</span>
               </div>
               <div class="bottom">
-                <span>这是一条测试消息</span>
+                <span>{{ item.context }}</span>
               </div>
             </div>
           </div>
@@ -52,31 +56,117 @@ export default {
     return {
       // 默认高亮 “全部”
       activeTab: 'all',
-      chatNoteList: []
+      chatNoteList: [],
+      loading: false,
+      cacheByFriend: {},
+      reqSeq: 0
+    }
+  },
+  computed: {
+    displayList () {
+      if (this.activeTab === 'all') return this.chatNoteList
+      if (this.activeTab === 'image') {
+        return this.chatNoteList.filter(x => Number(x.msg_type) === 2)
+      }
+      if (this.activeTab === 'text') {
+        return this.chatNoteList.filter(x => Number(x.msg_type) !== 2 && Number(x.msg_type) !== 3)
+      }
+      return this.chatNoteList
     }
   },
   watch: {
     '$store.state.chatNotePage' (open) {
       if (!open) return
-      const raw = this.$store.state.currentChatFriendId
-      if (raw === null || raw === undefined || raw === '') return
-      const fid = Number(raw)
-      if (!Number.isFinite(fid)) return
-
-      this.$axios({
-        url: '/api/chat/history',
-        method: 'get',
-        params: {
-          receiver_id: fid,
-        }
-      }).then(res => {
-        if (res.data.err === 'success') {
-          this.chatNoteList = res.data.msg.msg
-        }
-      })
+      this.loadChatNote(this.$store.state.currentChatFriendId, { forceRefresh: false })
+    },
+    '$store.state.currentChatFriendId' (id) {
+      if (!this.$store.state.chatNotePage) return
+      this.loadChatNote(id, { forceRefresh: false })
     }
   },
   methods: {
+    normalizeChatNoteListFromStore (friendId) {
+      const list = this.$store.state.messagesByFriend[String(friendId)] || []
+      const friend = this.$store.state.chatFriendList.find(x => String(x.id) === String(friendId)) ||
+        this.$store.state.currentFriendDetail ||
+        {}
+      const friendName = friend.username || friend.nickname || '好友'
+      const friendAvatar = friend.avatar || friend.picture || friend.friend_picture || ''
+      const myName = this.$store.state.userName || '我'
+      const myAvatar = this.$store.state.userPicture || ''
+      return list
+        .slice()
+        .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0))
+        .map((m, idx) => {
+          const isImage = Number(m.msg_type) === 2
+          const isFile = Number(m.msg_type) === 3
+          const context = isImage
+            ? '[图片]'
+            : (isFile ? `[文件] ${m.file_name || ''}`.trim() : (m.msg || ''))
+          const senderName = m.outgoing ? myName : friendName
+          const senderAvatar = m.outgoing ? myAvatar : friendAvatar
+          const t = Number(m.timestamp)
+          const timeString = Number.isFinite(t) && t > 0
+            ? new Date(t).toLocaleString()
+            : ''
+          return {
+            id: m.id || `note-${friendId}-${idx}`,
+            user_name: senderName,
+            user_picture: senderAvatar,
+            context,
+            time_string: timeString,
+            msg_type: Number(m.msg_type) || 1
+          }
+        })
+    },
+    loadChatNote (friendId, { forceRefresh = false } = {}) {
+      if (friendId === null || friendId === undefined || friendId === '') return
+      const fid = Number(friendId)
+      if (!Number.isFinite(fid)) return
+
+      const cacheKey = String(fid)
+      const now = Date.now()
+      const localList = this.normalizeChatNoteListFromStore(fid)
+      this.chatNoteList = localList
+
+      const cache = this.cacheByFriend[cacheKey]
+      // 20s 内复用结果，避免频繁打开弹窗重复等待接口
+      if (!forceRefresh && cache && (now - cache.ts < 20000)) {
+        this.chatNoteList = cache.list
+        return
+      }
+
+      const seq = ++this.reqSeq
+      this.loading = true
+
+      this.$store.dispatch('fetchChatHistory', { friendId: fid }).then(() => {
+        // 若用户切换到其他好友，丢弃旧请求结果
+        if (seq !== this.reqSeq) return
+        const nextList = this.normalizeChatNoteListFromStore(fid)
+        this.chatNoteList = nextList
+        this.cacheByFriend[cacheKey] = {
+          ts: Date.now(),
+          list: nextList
+        }
+      }).catch(() => {}).finally(() => {
+        if (seq === this.reqSeq) {
+          this.loading = false
+        }
+      })
+    },
+    fetchChatNoteList (friendId) {
+      // 兼容可能的旧调用入口，统一走优化后的加载逻辑
+      this.loadChatNote(friendId, { forceRefresh: true })
+    },
+    fetchChatNoteListFromApi (fid) {
+      return this.$axios({
+        url: '/api/chat/history',
+        method: 'get',
+        params: {
+          receiver_id: fid
+        }
+      })
+    },
     setTab (tab) {
       this.activeTab = tab
     },
@@ -175,30 +265,66 @@ export default {
   max-height: 45vh;
   overflow: auto;
 }
+.state-tip {
+  color: #909399;
+  font-size: 13px;
+  text-align: center;
+  padding: 16px 0;
+}
 .item {
   padding: 2px 8px;
   cursor: pointer;
   border-radius: 10px;
   margin-right: 20px;
   display: flex;
+  align-items: flex-start;
   margin-bottom: 10px;
 }
 .avater {
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   border-radius: 50%;
   background-color: #326EB6;
 }
+.avater img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
 .message {
+  flex: 1;
+  min-width: 0;
   margin-left: 10px;
   text-align: left;
 }
 .top {
   display: flex;
-  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
   color: gray;
   font-size: 14px;
   line-height: 20px;
   gap: 12px;
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time {
+  flex-shrink: 0;
+}
+.bottom {
+  margin-top: 2px;
+}
+.bottom span {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -15,37 +15,6 @@ Vue.use(Vuex)
 const MAX_PENDING_PRIVATE_WS = 50
 const pendingPrivateRawQueue = []
 
-function applyChatIncomingPrivate (state, raw, userId) {
-  const me = userId != null && userId !== '' ? Number(userId) : NaN
-  if (!Number.isFinite(me)) return
-  const norm = normalizeIncomingPrivate(raw)
-  if (!norm) return
-  const peerId = conversationPeerId(me, norm)
-  if (!Number.isFinite(peerId)) {
-    console.warn('[chatIncomingPrivate] 无法解析会话对方 id，请检查 WS 字段名', raw)
-    return
-  }
-  const friendKey = String(peerId)
-  const outgoing = Number.isFinite(me) &&
-    Number.isFinite(norm.sender_id) &&
-    norm.sender_id === me
-  const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : Date.now()
-  const id = `in-${ts}-${Math.random().toString(36).slice(2, 9)}`
-  const row = {
-    id,
-    outgoing,
-    pending: false,
-    failed: false,
-    msg_type: norm.msg_type || 1,
-    msg: norm.msg || '',
-    file_url: norm.file_url || '',
-    file_name: norm.file_name || '',
-    timestamp: ts
-  }
-  const prev = state.messagesByFriend[friendKey] || []
-  Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
-}
-
 // 默认头像信息
 const default_avatar = {
   id: 1,
@@ -81,6 +50,66 @@ function normalizeFriendDetailRow (item) {
     signature: item.signature ?? item.friend_signature ?? '这个人很懒，什么都没有留下',
     avatar: item.avatar ?? item.picture ?? item.friend_picture ?? ''
   }
+}
+
+function touchChatFriendToTop (state, friendId, fallback) {
+  const fid = friendId != null ? String(friendId) : ''
+  if (!fid) return
+  const list = state.chatFriendList || []
+  const idx = list.findIndex(item => String(item.id) === fid)
+
+  let detail = idx > -1 ? list[idx] : null
+  if (!detail) {
+    const fromContact = (state.userFriendList || []).find(
+      item => String(item.friend_id ?? item.id) === fid
+    )
+    if (fromContact) {
+      detail = normalizeFriendDetailRow(fromContact)
+    }
+  }
+  if (!detail && fallback) {
+    detail = normalizeFriendDetailRow({ ...fallback, id: fallback.id ?? friendId, friend_id: friendId })
+  }
+  if (!detail) return
+
+  const next = { ...detail, id: detail.id ?? friendId }
+  if (idx > -1) {
+    state.chatFriendList.splice(idx, 1)
+  }
+  state.chatFriendList.unshift(next)
+}
+
+function applyChatIncomingPrivate (state, raw, userId) {
+  const me = userId != null && userId !== '' ? Number(userId) : NaN
+  if (!Number.isFinite(me)) return
+  const norm = normalizeIncomingPrivate(raw)
+  if (!norm) return
+  const peerId = conversationPeerId(me, norm)
+  if (!Number.isFinite(peerId)) {
+    console.warn('[chatIncomingPrivate] 无法解析会话对方 id，请检查 WS 字段名', raw)
+    return
+  }
+  const friendKey = String(peerId)
+  const outgoing = Number.isFinite(me) &&
+    Number.isFinite(norm.sender_id) &&
+    norm.sender_id === me
+  const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : null
+  const idTs = ts != null ? ts : Date.now()
+  const id = `in-${idTs}-${Math.random().toString(36).slice(2, 9)}`
+  const row = {
+    id,
+    outgoing,
+    pending: false,
+    failed: false,
+    msg_type: norm.msg_type || 1,
+    msg: norm.msg || '',
+    file_url: norm.file_url || '',
+    file_name: norm.file_name || '',
+    timestamp: ts
+  }
+  const prev = state.messagesByFriend[friendKey] || []
+  Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
+  touchChatFriendToTop(state, peerId)
 }
 
 const store = new Vuex.Store({
@@ -163,12 +192,10 @@ const store = new Vuex.Store({
       if (!friendDetail) return
       const friendId = friendDetail.id
       if (friendId === undefined || friendId === null || friendId === '') return
-
       const idx = state.chatFriendList.findIndex(item => String(item.id) === String(friendId))
-      if (idx > -1) {
-        state.chatFriendList.splice(idx, 1)
+      if (idx === -1) {
+        touchChatFriendToTop(state, friendId, friendDetail)
       }
-      state.chatFriendList.unshift(friendDetail)
       state.currentChatFriendId = friendId
     },
     setCurrentChatFriendId (state, friendId) {
@@ -218,9 +245,11 @@ const store = new Vuex.Store({
         msg: msg != null ? String(msg) : '',
         file_url: file_url != null ? String(file_url) : '',
         file_name: file_name != null ? String(file_name) : '',
-        timestamp: null
+        // 聊天气泡时间按客户端发送时刻显示，不等待后端 ack 时间
+        timestamp: Date.now()
       }
       Vue.set(state.messagesByFriend, key, prev.concat(row))
+      touchChatFriendToTop(state, friendId)
     },
     chatMessageAck (state, { receiver_id, timestamp, msg_type }) {
       if (receiver_id === null || receiver_id === undefined || receiver_id === '') return
@@ -238,7 +267,8 @@ const store = new Vuex.Store({
       const next = {
         ...cur,
         pending: false,
-        timestamp: timestamp != null ? Number(timestamp) : cur.timestamp
+        // 若发送时已记录本地时间，ack 不覆盖；仅在缺失时补写
+        timestamp: cur.timestamp != null ? cur.timestamp : (timestamp != null ? Number(timestamp) : cur.timestamp)
       }
       const nextList = list.slice()
       nextList[idx] = next

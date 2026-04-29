@@ -45,7 +45,9 @@ export default {
       return this.$store.state.socketConnected
     },
     currentFriendId () {
-      return this.$store.state.currentChatFriendId
+      const id = this.$store.state.currentChatFriendId
+      if (id !== null && id !== undefined && id !== '') return id
+      return this.$store.state.currentFriendDetail?.id ?? null
     },
     sendDisabled () {
       const t = this.draft.trim()
@@ -54,6 +56,7 @@ export default {
   },
   methods: {
     openChatNote () {
+      this.$store.commit('setCurrentChatFriendId', this.currentFriendId)
       this.$store.commit('openChatNotePage')
     },
     send () {

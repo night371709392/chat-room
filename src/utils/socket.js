@@ -34,6 +34,7 @@ class SocketService {
   _bindMessageChannel () {
     if (!this.socket) return
     const handlePayload = raw => {
+      const clientReceivedAt = Date.now()
       let data = raw
       if (typeof data === 'string') {
         try {
@@ -54,6 +55,9 @@ class SocketService {
           })
           break
         case 'private':
+          if (data.timestamp == null && data.Timestamp == null && data.create_time == null && data.createTime == null && data.msg_time == null && data.msgTime == null && data.time == null) {
+            data._client_received_at = clientReceivedAt
+          }
           store.commit('chatIncomingPrivate', { raw: data, userId })
           break
         default:

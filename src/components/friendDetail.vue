@@ -4,7 +4,7 @@
       <div class="avatar-wrap">
         <img :src="friend.avatar || defaultAvatar" alt="好友头像">
       </div>
-      <h2 class="name">{{ friend.username || '-' }}</h2>
+      <h2 class="name">{{ friend.nickname || friend.username || '-' }}</h2>
 
       <div class="base-info-wrap">
         <div class="base-info">

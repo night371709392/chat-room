@@ -5,7 +5,7 @@
     </div>
     <div class="right">
       <div class="name-text">
-        <p>{{ friendDetail.username || friendDetail.nickname || '-' }}</p>
+        <p>{{ friendDetail.nickname || friendDetail.username || '-' }}</p>
         <span>{{ latestMessageTimeText }}</span>
       </div>
       <div class="content-text">{{ latestMessagePreview }}</div>

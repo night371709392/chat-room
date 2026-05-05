@@ -82,6 +82,23 @@ export default {
     '$store.state.currentChatFriendId' (id) {
       if (!this.$store.state.chatNotePage) return
       this.loadChatNote(id, { forceRefresh: false })
+    },
+    /** 备注等会话信息变更后，重算当前弹窗里的对方昵称 */
+    '$store.state.chatFriendList': {
+      deep: true,
+      handler () {
+        if (!this.$store.state.chatNotePage) return
+        const id = this.$store.state.currentChatFriendId
+        if (id == null || id === '') return
+        const fid = String(id)
+        const n = Number(id)
+        if (!Number.isFinite(n)) return
+        const list = this.normalizeChatNoteListFromStore(n)
+        this.chatNoteList = list
+        if (this.cacheByFriend[fid]) {
+          this.cacheByFriend[fid] = { ts: Date.now(), list }
+        }
+      }
     }
   },
   methods: {
@@ -90,7 +107,7 @@ export default {
       const friend = this.$store.state.chatFriendList.find(x => String(x.id) === String(friendId)) ||
         this.$store.state.currentFriendDetail ||
         {}
-      const friendName = friend.username || friend.nickname || '好友'
+      const friendName = friend.nickname || friend.username || '好友'
       const friendAvatar = friend.avatar || friend.picture || friend.friend_picture || ''
       const myName = this.$store.state.userName || '我'
       const myAvatar = this.$store.state.userPicture || ''

@@ -23,7 +23,7 @@
           <img :src="item.friend_picture" alt="">
         </div>
         <div class="right">
-          <p>{{ item.friend_name }}</p>
+          <p>{{ contactDisplayName(item) }}</p>
         </div>
       </div>
 
@@ -56,6 +56,11 @@ export default {
     this.$store.commit('setFriendDetailLoading', false)
   },
   methods: {
+    contactDisplayName (item) {
+      if (!item) return '-'
+      const r = String(item.friend_remark ?? item.remark ?? '').trim()
+      return r || item.friend_name || '-'
+    },
     openPage () {
       this.$store.commit('openAddFriendPage')
     },

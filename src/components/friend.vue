@@ -1,32 +1,54 @@
 <template>
-  <div class="friend">
-    <div class="header">
-      <span>{{ friendName }}</span>
-      <span><i class="ri ri-more-2-line"></i></span>
-    </div>
-    <div class="main" ref="mainScroll">
-      <div class="message-tip">
-        你们已成为好友，现在可以开始聊天了
+  <div class="friend-wrap">
+    <div class="friend-main">
+      <div class="header">
+        <span>{{ friendName }}</span>
+        <span
+          class="header-more"
+          :class="{ active: showFriendSet }"
+          role="button"
+          tabindex="0"
+          title="好友设置"
+          @click="toggleFriendSet"
+          @keydown.enter.prevent="toggleFriendSet"
+        ><i class="ri ri-more-2-line"></i></span>
       </div>
-      <Message
-        v-for="row in currentMessages"
-        :key="row.id"
-        :item="row"
-      />
+      <div class="main" ref="mainScroll">
+        <div class="message-tip">
+          你们已成为好友，现在可以开始聊天了
+        </div>
+        <Message
+          v-for="row in currentMessages"
+          :key="row.id"
+          :item="row"
+        />
+      </div>
+      <ChatContent></ChatContent>
     </div>
-    <ChatContent></ChatContent>
+    <aside class="friend-set-aside" :class="{ open: showFriendSet }">
+      <div v-if="currentChatFriendId" class="friend-set-shell">
+        <FriendSet :visible="showFriendSet" @close="showFriendSet = false" />
+      </div>
+    </aside>
   </div>
 </template>
 
 <script>
 import Message from './message.vue'
 import ChatContent from './ChatContent.vue'
+import FriendSet from './friendSet.vue'
 
 export default {
   name: 'FriendChatPage',
   components: {
     Message,
-    ChatContent
+    ChatContent,
+    FriendSet
+  },
+  data () {
+    return {
+      showFriendSet: false
+    }
   },
   computed: {
     currentChatFriendId () {
@@ -39,7 +61,8 @@ export default {
     },
     friendName () {
       if (!this.currentChatFriend) return '聊天'
-      return this.currentChatFriend.username || this.currentChatFriend.nickname || '聊天'
+      const f = this.currentChatFriend
+      return f.nickname || f.username || '聊天'
     },
     currentMessages () {
       const id = this.$store.state.currentChatFriendId
@@ -58,6 +81,7 @@ export default {
     currentChatFriendId: {
       immediate: true,
       handler (id) {
+        this.showFriendSet = false
         if (id === null || id === undefined || id === '') return
         this.$store.dispatch('fetchChatHistory', { friendId: id })
         this.$store.dispatch('markChatRead', { friendId: id })
@@ -72,6 +96,9 @@ export default {
     }
   },
   methods: {
+    toggleFriendSet () {
+      this.showFriendSet = !this.showFriendSet
+    },
     scrollToBottom () {
       const el = this.$refs.mainScroll
       if (!el) return
@@ -87,20 +114,58 @@ export default {
   padding: 0;
   box-sizing: border-box;
 }
-.friend .header .ri {
+.friend-wrap .header .ri {
   font-size: 24px;
   color: #303133;
-  cursor: pointer;
 }
-.friend {
+.friend-wrap {
   flex: 1;
   height: 100vh;
   max-height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  min-width: 0;
   background-color: #f8f8f8;
 }
-.friend .header {
+.friend-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.friend-set-aside {
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #f0f1f4;
+  border-left: 1px solid transparent;
+}
+.friend-set-aside.open {
+  width: 286px;
+  border-left-color: #ebeef5;
+}
+.friend-set-shell {
+  width: 286px;
+  height: 100%;
+  min-height: 100%;
+}
+.friend-wrap .header-more {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+}
+.friend-wrap .header-more:hover {
+  background: #f5f7fa;
+}
+.friend-wrap .header-more.active .ri {
+  color: #3458DA;
+}
+.friend-wrap .header {
   height: 60px;
   display: flex;
   justify-content: space-between;
@@ -111,13 +176,13 @@ export default {
   border-bottom: 1px solid #ebeef5;
   flex-shrink: 0;
 }
-.friend .main {
+.friend-wrap .main {
   height: 68vh;
   padding: 0 10px;
   background: #f6f7f8;
   overflow-y: auto;
 }
-.friend .main .message-tip {
+.friend-wrap .main .message-tip {
   line-height: 50px;
   font-size: 13px;
   color: gray;

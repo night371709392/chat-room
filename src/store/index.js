@@ -30,6 +30,8 @@ function normalizeFriendDetailRow (item, opts) {
       id: '',
       username: '',
       nickname: '',
+      remark: '',
+      friend_remark: '',
       gender: '',
       signature: partial ? '' : '这个人很懒，什么都没有留下',
       avatar: ''
@@ -53,13 +55,23 @@ function normalizeFriendDetailRow (item, opts) {
   } else {
     signature = partial ? '' : '这个人很懒，什么都没有留下'
   }
+  const province = item.province ?? item.friend_province ?? ''
+  const city = item.city ?? item.friend_city ?? ''
+  const region = item.region ?? item.area ?? ''
+  const remark = item.remark ?? item.friend_remark ?? ''
+  const friend_remark = item.friend_remark ?? item.remark ?? ''
   return {
     id: item.id ?? item.friend_id ?? '',
     username: item.username ?? item.name ?? item.friend_name ?? '',
     nickname: item.nickname ?? item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
+    remark: remark != null ? String(remark) : '',
+    friend_remark: friend_remark != null ? String(friend_remark) : '',
     gender,
     signature,
-    avatar: item.avatar ?? item.picture ?? item.friend_picture ?? item['friend-picture'] ?? ''
+    avatar: item.avatar ?? item.picture ?? item.friend_picture ?? item['friend-picture'] ?? '',
+    province,
+    city,
+    region
   }
 }
 
@@ -219,6 +231,49 @@ const store = new Vuex.Store({
     setChatFriendList (state, list) {
       state.chatFriendList = Array.isArray(list) ? list : []
     },
+    /**
+     * 本地同步好友备注（保存成功后调用），更新会话列表、通讯录、当前详情
+     * 约定：username 为对方原名；nickname 为展示名 = 有备注用备注否则原名
+     */
+    applyFriendRemark (state, { friendId, remark }) {
+      const fid = friendId != null ? String(friendId) : ''
+      if (!fid) return
+      const r = remark != null ? String(remark).trim() : ''
+
+      const cidx = state.chatFriendList.findIndex(item => String(item.id) === fid)
+      if (cidx > -1) {
+        const cur = state.chatFriendList[cidx]
+        const baseName = cur.username || ''
+        const next = {
+          ...cur,
+          remark: r,
+          friend_remark: r,
+          nickname: r || baseName
+        }
+        Vue.set(state.chatFriendList, cidx, next)
+      }
+
+      const uidx = state.userFriendList.findIndex(
+        item => String(item.friend_id ?? item.id) === fid
+      )
+      if (uidx > -1) {
+        const u = { ...state.userFriendList[uidx] }
+        u.friend_remark = r
+        u.remark = r
+        Vue.set(state.userFriendList, uidx, u)
+      }
+
+      const d = state.currentFriendDetail
+      if (d && String(d.id) === fid) {
+        const base = d.username || ''
+        state.currentFriendDetail = {
+          ...d,
+          remark: r,
+          friend_remark: r,
+          nickname: r || base
+        }
+      }
+    },
     setUserId (state, id) {
       if (id === null || id === undefined || id === '') {
         state.userId = null
@@ -313,6 +368,12 @@ const store = new Vuex.Store({
     /**
      * 合并服务端历史与本地未同步气泡，避免拉历史覆盖掉已收到的 WS 消息
      */
+    /** 清空与某好友的本地消息列表（仅前端；未调用服务端删历史） */
+    clearMessagesForFriend (state, friendId) {
+      const key = friendId != null ? String(friendId) : ''
+      if (!key) return
+      Vue.set(state.messagesByFriend, key, [])
+    },
     setFriendMessagesFromHistory (state, { friendId, messages }) {
       const key = String(friendId)
       const serverSorted = (messages || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))

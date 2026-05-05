@@ -90,6 +90,7 @@ export default {
 .friend .header .ri {
   font-size: 24px;
   color: #303133;
+  cursor: pointer;
 }
 .friend {
   flex: 1;

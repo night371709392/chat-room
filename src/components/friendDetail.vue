@@ -6,22 +6,27 @@
       </div>
       <h2 class="name">{{ friend.username || '-' }}</h2>
 
-      <div class="base-info">
-        <div class="info-item">
-          <span class="label">用户名(ID)</span>
-          <span class="value">{{ friend.username || '-' }}</span>
+      <div class="base-info-wrap">
+        <div class="base-info">
+          <div class="info-item">
+            <span class="label">用户名(ID)</span>
+            <span class="value">{{ friend.username || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">昵称</span>
+            <span class="value">{{ friend.nickname || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">性别</span>
+            <span class="value">{{ friend.gender || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">个性签名</span>
+            <span class="value">{{ friend.signature || '-' }}</span>
+          </div>
         </div>
-        <div class="info-item">
-          <span class="label">昵称</span>
-          <span class="value">{{ friend.nickname || '-' }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">性别</span>
-          <span class="value">{{ friend.gender || '-' }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">个性签名</span>
-          <span class="value">{{ friend.signature || '-' }}</span>
+        <div v-if="detailLoading" class="base-info-loading" aria-busy="true">
+          <span class="loading-text">加载中…</span>
         </div>
       </div>
 
@@ -43,6 +48,9 @@ export default {
   computed: {
     friend () {
       return this.$store.state.currentFriendDetail
+    },
+    detailLoading () {
+      return this.$store.state.friendDetailLoading
     }
   },
   data () {
@@ -109,11 +117,29 @@ export default {
   margin: 20px 0;
   color: #1f2430;
 }
+.base-info-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+}
 .base-info {
   border-top: 1px solid #dfe3ef;
   padding-top: 14px;
   width: 100%;
-  max-width: 520px;
+}
+.base-info-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.loading-text {
+  font-size: 15px;
+  color: #5c6370;
 }
 .info-item {
   display: flex;

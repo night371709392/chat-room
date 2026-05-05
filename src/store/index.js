@@ -8,6 +8,7 @@ import {
   isHistorySuccess,
   extractHistoryList
 } from "@/utils/imPayload"
+import { extractFriendMainRow } from "@/utils/contactFriendMain"
 
 Vue.use(Vuex)
 
@@ -21,15 +22,16 @@ const default_avatar = {
   url: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
 }
 
-/** 与 views/ChatRoom/friend.vue 中好友详情字段对齐 */
-function normalizeFriendDetailRow (item) {
+/** 与 views/ChatRoom/friend.vue 中好友详情字段对齐；partial 为 true 时不补默认性别/签名，避免详情拉取前闪烁 */
+function normalizeFriendDetailRow (item, opts) {
+  const partial = opts && opts.partial === true
   if (!item || typeof item !== 'object') {
     return {
       id: '',
       username: '',
       nickname: '',
       gender: '',
-      signature: '这个人很懒，什么都没有留下',
+      signature: partial ? '' : '这个人很懒，什么都没有留下',
       avatar: ''
     }
   }
@@ -38,17 +40,26 @@ function normalizeFriendDetailRow (item) {
   if (!gender) {
     if (rawGender === '男' || rawGender === '女') {
       gender = rawGender
+    } else if (rawGender === '' || rawGender === undefined || rawGender === null) {
+      gender = partial ? '' : '男'
     } else {
       gender = Number(rawGender) === 1 ? '女' : '男'
     }
+  }
+  const sigRaw = item.signature ?? item.friend_signature
+  let signature
+  if (sigRaw !== undefined && sigRaw !== null && sigRaw !== '') {
+    signature = sigRaw
+  } else {
+    signature = partial ? '' : '这个人很懒，什么都没有留下'
   }
   return {
     id: item.id ?? item.friend_id ?? '',
     username: item.username ?? item.name ?? item.friend_name ?? '',
     nickname: item.nickname ?? item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
     gender,
-    signature: item.signature ?? item.friend_signature ?? '这个人很懒，什么都没有留下',
-    avatar: item.avatar ?? item.picture ?? item.friend_picture ?? ''
+    signature,
+    avatar: item.avatar ?? item.picture ?? item.friend_picture ?? item['friend-picture'] ?? ''
   }
 }
 
@@ -131,6 +142,7 @@ const store = new Vuex.Store({
 
     userFriendList: [], // 用户好友列表，用来保存用户通讯录的好友
     currentFriendDetail: null, // 当前选中的好友详情
+    friendDetailLoading: false, // 好友主页接口拉取中（用于详情区加载态）
     chatFriendList: [], // 聊天会话好友列表
     currentChatFriendId: null, // 当前聊天会话好友id
 
@@ -187,6 +199,9 @@ const store = new Vuex.Store({
     },
     setCurrentFriendDetail (state, friendDetail) {
       state.currentFriendDetail = friendDetail
+    },
+    setFriendDetailLoading (state, loading) {
+      state.friendDetailLoading = !!loading
     },
     openFriendChat (state, friendDetail) {
       if (!friendDetail) return
@@ -359,15 +374,18 @@ const store = new Vuex.Store({
         friend_name: (fromChat && (fromChat.username || fromChat.nickname)) || '',
         friend_picture: (fromChat && fromChat.avatar) || ''
       }
-      const fallback = normalizeFriendDetailRow(raw)
+      const fallback = normalizeFriendDetailRow(raw, { partial: true })
+      commit('setFriendDetailLoading', true)
       commit('setCurrentFriendDetail', fallback)
 
       try {
         const res = await axios.post('/api/contact/friend/main', { friend_id: fid })
-        const data = res.data?.friend ?? res.data?.data ?? res.data ?? {}
-        commit('setCurrentFriendDetail', normalizeFriendDetailRow({ ...fallback, ...data, friend_id: fid }))
+        const row = extractFriendMainRow(res.data)
+        commit('setCurrentFriendDetail', normalizeFriendDetailRow({ ...fallback, ...row, friend_id: fid }))
       } catch (e) {
         // 保留 fallback，静默失败
+      } finally {
+        commit('setFriendDetailLoading', false)
       }
     }
   }

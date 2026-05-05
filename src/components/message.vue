@@ -73,7 +73,7 @@ export default {
       const id = this.$store.state.currentChatFriendId
       if (id === null || id === undefined || id === '') return
       this.$store.dispatch('fetchFriendDetailPanel', { friendId: id })
-      this.$store.commit('setChatSubStatus', 'friend')
+      this.$store.commit('setChatSubStatus', 'friendDetail')
       this.$router.push('/chathome/friend')
     }
   }

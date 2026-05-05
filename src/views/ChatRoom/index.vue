@@ -57,11 +57,31 @@ export default {
     showNewFriend () {
       return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'newfriend'
     },
+    /** 仅通讯录内主动查看资料（与会话列表的 chatSubStatus=friend 区分，避免从聊天切到通讯录误开详情） */
     showFriendDetail () {
-      return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'friend'
+      return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'friendDetail'
     },
     showSettingView () {
       return this.$route.path.indexOf('/chathome/setting') === 0
+    }
+  },
+  watch: {
+    '$route.path' (to) {
+      if (to === '/chathome/friend') {
+        if (this.$store.state.chatSubStatus === 'friend') {
+          this.$store.commit('setChatSubStatus', '')
+          this.$store.commit('setCurrentFriendDetail', null)
+          this.$store.commit('setFriendDetailLoading', false)
+        }
+        return
+      }
+      if (to === '/chathome/chat') {
+        const id = this.$store.state.currentChatFriendId
+        const hasFriend = id != null && id !== ''
+        if (hasFriend && this.$store.state.chatSubStatus === 'friendDetail') {
+          this.$store.commit('setChatSubStatus', 'friend')
+        }
+      }
     }
   },
   created () {

@@ -10,11 +10,25 @@
         <img :src="item.outgoing ? myAvatarUrl : friendAvatarUrl" alt="头像">
       </div>
       <div class="bubble-wrap">
-        <div v-if="item.msg_type === 2" class="message-bubble file-bubble">
-          <a v-if="fileHref" :href="fileHref" target="_blank" rel="noopener noreferrer">
-            <img v-if="isImageFile" class="file-img" :src="fileHref" alt="">
-            <span v-else class="file-name">{{ item.file_name || '文件' }}</span>
-          </a>
+        <div v-if="isFileBubble" class="message-bubble file-bubble">
+          <template v-if="fileHref">
+            <a
+              v-if="isImageFile"
+              :href="fileHref"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img class="file-img" :src="fileHref" alt="">
+            </a>
+            <div v-else-if="isVideoFile" class="file-video-wrap">
+              <video class="file-video" :src="fileHref" controls playsinline preload="metadata" />
+              <a class="file-open-tab" :href="fileHref" target="_blank" rel="noopener noreferrer">新窗口打开</a>
+            </div>
+            <a v-else :href="fileHref" target="_blank" rel="noopener noreferrer">
+              <span class="file-name">{{ item.file_name || '文件' }}</span>
+            </a>
+          </template>
+          <span v-else class="file-name">{{ item.file_name || '文件' }}</span>
         </div>
         <div v-else class="message-bubble">
           {{ item.msg }}
@@ -37,6 +51,11 @@ export default {
     }
   },
   computed: {
+    isFileBubble () {
+      const t = Number(this.item.msg_type)
+      // 与部分后端约定一致：2=文件/图片，3=附件或图片
+      return t === 2 || t === 3
+    },
     myAvatarUrl () {
       return this.$store.state.selectedAvatarUrl || this.$store.state.userPicture || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
     },
@@ -56,6 +75,14 @@ export default {
       const n = (this.item.file_name || '').toLowerCase()
       const u = (this.fileHref || '').toLowerCase()
       if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(n) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(u)) return true
+      return false
+    },
+    isVideoFile () {
+      const n = (this.item.file_name || '').toLowerCase()
+      const u = (this.fileHref || '').toLowerCase()
+      if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(n) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(u)) {
+        return true
+      }
       return false
     },
     timeLabel () {
@@ -155,6 +182,24 @@ export default {
   max-width: 220px;
   max-height: 220px;
   border-radius: 6px;
+}
+.file-video-wrap {
+  display: block;
+  max-width: min(280px, 100%);
+}
+.file-video {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border-radius: 6px;
+  vertical-align: middle;
+  background: #000;
+}
+.file-open-tab {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #3367d6;
 }
 .file-name {
   font-size: 13px;

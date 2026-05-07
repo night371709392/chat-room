@@ -6,7 +6,8 @@ import {
   conversationPeerId,
   normalizeHistoryRow,
   isHistorySuccess,
-  extractHistoryList
+  extractHistoryList,
+  bubbleDedupeKey
 } from "@/utils/imPayload"
 import { extractFriendMainRow } from "@/utils/contactFriendMain"
 
@@ -116,6 +117,20 @@ function applyChatIncomingPrivate (state, raw, userId) {
   const outgoing = Number.isFinite(me) &&
     Number.isFinite(norm.sender_id) &&
     norm.sender_id === me
+  const prev = state.messagesByFriend[friendKey] || []
+  // 文件消息：部分实现会向发送方再推一条 private，与本地已展示的发送气泡重复则忽略
+  if (outgoing && (Number(norm.msg_type) === 2 || Number(norm.msg_type) === 3)) {
+    const url = String(norm.file_url || norm.msg || '').trim()
+    if (url) {
+      const dup = prev.some(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 2 &&
+        !m.failed &&
+        (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
+      )
+      if (dup) return
+    }
+  }
   const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : null
   const idTs = ts != null ? ts : Date.now()
   const id = `in-${idTs}-${Math.random().toString(36).slice(2, 9)}`
@@ -130,7 +145,6 @@ function applyChatIncomingPrivate (state, raw, userId) {
     file_name: norm.file_name || '',
     timestamp: ts
   }
-  const prev = state.messagesByFriend[friendKey] || []
   Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
   touchChatFriendToTop(state, peerId)
 }
@@ -321,6 +335,24 @@ const store = new Vuex.Store({
       Vue.set(state.messagesByFriend, key, prev.concat(row))
       touchChatFriendToTop(state, friendId)
     },
+    /** 上传完成后把本地预览 URL 换成服务端地址，再发 socket */
+    updatePendingOutFileUrl (state, { friendId, tempId, msg, file_url, file_name }) {
+      const key = String(friendId)
+      const list = state.messagesByFriend[key]
+      if (!list || !list.length) return
+      const idx = list.findIndex(m => m.id === tempId && m.pending && !m.failed)
+      if (idx === -1) return
+      const cur = list[idx]
+      const next = {
+        ...cur,
+        msg: msg != null ? String(msg) : cur.msg,
+        file_url: file_url != null ? String(file_url) : cur.file_url,
+        file_name: file_name != null ? String(file_name) : cur.file_name
+      }
+      const nextList = list.slice()
+      nextList[idx] = next
+      Vue.set(state.messagesByFriend, key, nextList)
+    },
     chatMessageAck (state, { receiver_id, timestamp, msg_type }) {
       if (receiver_id === null || receiver_id === undefined || receiver_id === '') return
       const key = String(receiver_id)
@@ -378,14 +410,14 @@ const store = new Vuex.Store({
       const key = String(friendId)
       const serverSorted = (messages || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
       const existing = state.messagesByFriend[key] || []
-      const rowKey = m => `${m.timestamp}|${m.outgoing ? 1 : 0}|${(m.msg || '').slice(0, 120)}`
-      const serverKeys = new Set(serverSorted.map(rowKey))
+      const dedupeKey = m => bubbleDedupeKey(m)
+      const serverKeys = new Set(serverSorted.map(dedupeKey))
       const extras = existing.filter(m => {
         if (m.pending) return true
         if (m.failed) return true
         const id = m.id != null ? String(m.id) : ''
-        if (id.startsWith('in-') || id.startsWith('p-')) {
-          return !serverKeys.has(rowKey(m))
+        if (id.startsWith('in-') || id.startsWith('p-') || id.startsWith('hist-')) {
+          return !serverKeys.has(dedupeKey(m))
         }
         return false
       })
@@ -398,6 +430,8 @@ const store = new Vuex.Store({
       const fid = friendId != null ? Number(friendId) : NaN
       if (!Number.isFinite(fid)) return
       try {
+        const { hydrateUserIdFromToken } = await import('@/utils/jwtUserId')
+        hydrateUserIdFromToken()
         const res = await axios.get('/api/chat/history', {
           params: { receiver_id: fid, page: 1, size: 50 }
         })

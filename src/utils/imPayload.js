@@ -116,25 +116,180 @@ export function normalizeIncomingPrivate (raw) {
   }
 }
 
+function looksLikeHttpUrl (s) {
+  return /^https?:\/\//i.test(String(s || '').trim())
+}
+
+function looksLikeMediaPathOrUrl (s) {
+  const t = String(s || '').trim()
+  if (!t) return false
+  if (looksLikeHttpUrl(t)) {
+    return /\.(png|jpe?g|gif|webp|bmp|mp4|webm|ogg|mov|m4v|avi|mkv)(\?|#|$)/i.test(t) ||
+      /\/(upload|file|static|storage|cdn|img)\b/i.test(t)
+  }
+  if (t.startsWith('//')) return /\.(png|jpe?g|gif|webp|bmp|mp4|webm)(\?|#|$)/i.test(t)
+  if (t.startsWith('/')) {
+    return /\.(png|jpe?g|gif|webp|bmp|mp4|webm|ogg|mov|m4v|avi|mkv)(\?|#|$)/i.test(t) ||
+      /\/(upload|file|static|storage)\b/i.test(t)
+  }
+  return false
+}
+
+/** 历史行可能是 { message: {...} } 等包装 */
+function unwrapHistoryRow (row) {
+  if (!row || typeof row !== 'object') return row
+  const inner =
+    row.chat_msg ?? row.chatMsg ?? row.ChatMsg ??
+    row.record ?? row.Record ??
+    row.payload ?? row.Payload
+  if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+    const hasLeaf = k => inner[k] != null && String(inner[k]).trim() !== ''
+    if (hasLeaf('context') || hasLeaf('msg') || hasLeaf('sender_id') || hasLeaf('senderId')) {
+      return inner
+    }
+  }
+  if (row.message && typeof row.message === 'object' && !Array.isArray(row.message)) {
+    const m = row.message
+    if (m.context != null || m.msg != null || m.sender_id != null || m.senderId != null) return m
+  }
+  return row
+}
+
+function pickUrlFromNestedObjects (row) {
+  if (!row || typeof row !== 'object') return ''
+  const nests = [
+    row.file, row.File, row.attachment, row.Attachment,
+    row.media, row.Media, row.resource, row.Resource,
+    row.image, row.Image, row.pic, row.Pic, row.photo, row.Photo,
+    row.data, row.Data
+  ]
+  const subKeys = [
+    'url', 'file_url', 'fileUrl', 'abs_url', 'absUrl', 'src', 'path',
+    'link', 'location', 'file_path', 'filePath'
+  ]
+  for (const sub of nests) {
+    if (!sub || typeof sub !== 'object') continue
+    const u = firstStr(sub, subKeys)
+    if (u) return u
+  }
+  if (Array.isArray(row.attachments)) {
+    for (const a of row.attachments) {
+      if (!a || typeof a !== 'object') continue
+      const u = firstStr(a, subKeys)
+      if (u) return u
+    }
+  }
+  return ''
+}
+
+/** 兜底：从整行里找最像媒体地址的字符串，避免后端字段名不在白名单时丢图 */
+function pickUrlDeepFallback (row) {
+  if (!row || typeof row !== 'object') return ''
+  const skipKeys = new Set([
+    'sender_name', 'senderName', 'receiver_name', 'receiverName',
+    'user_name', 'userName', 'nickname', 'nickName', 'remark',
+    'friend_name', 'friendName', 'friend_picture', 'friendPicture'
+  ])
+  const scored = []
+  const visit = (obj, depth) => {
+    if (!obj || typeof obj !== 'object' || depth > 3) return
+    if (Array.isArray(obj)) {
+      for (const x of obj) visit(x, depth + 1)
+      return
+    }
+    for (const k of Object.keys(obj)) {
+      if (skipKeys.has(k)) continue
+      const v = obj[k]
+      if (typeof v === 'string') {
+        const s = v.trim()
+        if (!s || s.length < 8) continue
+        if (looksLikeMediaPathOrUrl(s)) scored.push({ s, score: /\.(png|jpe?g|gif|webp|bmp)(\?|#|$)/i.test(s) ? 4 : 2 })
+      } else if (v && typeof v === 'object') visit(v, depth + 1)
+    }
+  }
+  visit(row, 0)
+  if (!scored.length) return ''
+  scored.sort((a, b) => b.score - a.score)
+  return scored[0].s
+}
+
+/**
+ * 与 setFriendMessagesFromHistory 去重一致：同一条气泡在「拉历史」与本地之间对齐
+ */
+export function bubbleDedupeKey (m) {
+  if (!m || typeof m !== 'object') return ''
+  const ts = Number(m.timestamp) || 0
+  const out = m.outgoing ? 1 : 0
+  const mt = Number(m.msg_type)
+  if (mt === 2 || mt === 3) {
+    const u = String(m.file_url || m.msg || '').trim()
+    return `${ts}|${out}|f|${u}`
+  }
+  return `${ts}|${out}|1|${String(m.msg || '').trim().slice(0, 200)}`
+}
+
 export function normalizeHistoryRow (row, me, index, friendId) {
   if (row == null || typeof row !== 'object') return null
+  row = unwrapHistoryRow(row)
   const senderId = firstNum(row, ['sender_id', 'senderId', 'SenderID', 'from_id', 'fromId'])
-  const body = firstStr(row, ['context', 'Context', 'msg', 'Msg', 'content', 'Content'])
+  const body = firstStr(row, [
+    'context', 'Context', 'msg', 'Msg', 'content', 'Content',
+    'message', 'Message', 'text', 'Text'
+  ])
   const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time
   const ts = toTimestampMs(tsRaw)
-  const msgTypeRaw = row.msg_type ?? row.msgType ?? row.MsgType
-  const msgType = Number.isFinite(toNum(msgTypeRaw)) ? toNum(msgTypeRaw) : 1
+  const msgTypeRaw =
+    row.msg_type ?? row.msgType ?? row.MsgType ??
+    row.message_type ?? row.messageType ?? row.kind ?? row.Type
+  let msgType = Number.isFinite(toNum(msgTypeRaw)) ? toNum(msgTypeRaw) : 1
   const outgoing = Number.isFinite(me) && Number.isFinite(senderId) && senderId === me
   const fid = toNum(friendId)
+  let fileUrl = firstStr(row, [
+    'file_url', 'fileUrl', 'FileURL',
+    'abs_url', 'absUrl', 'AbsURL',
+    'file_path', 'filePath',
+    'path', 'link', 'location',
+    'url', 'file'
+  ])
+  if (!fileUrl) fileUrl = pickUrlFromNestedObjects(row)
+  const fileNameHint = firstStr(row, ['file_name', 'fileName', 'FileName', 'filename'])
+  if (msgType === 1 && fileNameHint && looksLikeHttpUrl(body)) {
+    msgType = 2
+  }
+  if (msgType === 1 && fileUrl && looksLikeHttpUrl(fileUrl)) {
+    msgType = 2
+  }
+  if (msgType === 1 && looksLikeMediaPathOrUrl(body)) {
+    msgType = 2
+  }
+  let msgVal = body
+  if (msgType === 2 || msgType === 3) {
+    if (!fileUrl && body) fileUrl = body
+    if (!msgVal && fileUrl) msgVal = fileUrl
+    if (!fileUrl && !msgVal) {
+      const fb = pickUrlDeepFallback(row)
+      if (fb) {
+        fileUrl = fb
+        msgVal = fb
+      }
+    }
+    if (msgType === 3 && !fileUrl && !msgVal) {
+      msgType = 1
+    }
+  }
+  if (msgType === 1 && fileUrl && looksLikeMediaPathOrUrl(fileUrl)) {
+    msgType = 2
+    if (!msgVal) msgVal = fileUrl
+  }
   return {
     id: `hist-${fid}-${Number.isFinite(ts) ? ts : 0}-${index}`,
     outgoing,
     pending: false,
     failed: false,
     msg_type: msgType,
-    msg: body,
-    file_url: firstStr(row, ['file_url', 'fileUrl']),
-    file_name: firstStr(row, ['file_name', 'fileName']),
+    msg: msgVal,
+    file_url: fileUrl,
+    file_name: fileNameHint,
     timestamp: Number.isFinite(ts) ? ts : 0
   }
 }
@@ -150,18 +305,26 @@ export function isHistorySuccess (data) {
 export function extractHistoryList (data) {
   if (!data || typeof data !== 'object') return []
   const cands = [
-    data.list,
-    data.data,
-    data.messages,
-    data.rows,
-    data.Data,
-    data.List
+    data.list, data.List,
+    data.messages, data.rows,
+    data.records, data.Records,
+    data.items, data.Items,
+    data.pageList, data.PageList,
+    data.chat_list, data.chatList,
+    data.data, data.Data,
+    data.result, data.Result
   ]
   for (const c of cands) {
     if (Array.isArray(c)) return c
   }
   if (data.data && typeof data.data === 'object') {
-    const inner = data.data.list || data.data.List || data.data.messages
+    const d = data.data
+    const inner = d.list || d.List || d.messages || d.rows || d.records || d.items || d.pageList || d.data
+    if (Array.isArray(inner)) return inner
+  }
+  if (data.result && typeof data.result === 'object') {
+    const r = data.result
+    const inner = r.list || r.List || r.records || r.items || r.rows || r.data || r.messages
     if (Array.isArray(inner)) return inner
   }
   return []

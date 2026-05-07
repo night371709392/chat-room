@@ -34,7 +34,33 @@
                 <span class="time">{{ item.time_string }}</span>
               </div>
               <div class="bottom">
-                <span>{{ item.context }}</span>
+                <template v-if="(Number(item.msg_type) === 2 || Number(item.msg_type) === 3) && item.file_url">
+                  <a
+                    v-if="item.is_image"
+                    :href="item.file_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="note-media-link"
+                  >
+                    <img class="note-thumb" :src="item.file_url" alt="">
+                  </a>
+                  <video
+                    v-else-if="item.is_video"
+                    class="note-video"
+                    :src="item.file_url"
+                    controls
+                    playsinline
+                    preload="metadata"
+                  />
+                  <a
+                    v-else
+                    :href="item.file_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="note-file-link"
+                  >{{ item.file_name || '下载文件' }}</a>
+                </template>
+                <span v-else>{{ item.context }}</span>
               </div>
             </div>
           </div>
@@ -66,10 +92,13 @@ export default {
     displayList () {
       if (this.activeTab === 'all') return this.chatNoteList
       if (this.activeTab === 'image') {
-        return this.chatNoteList.filter(x => Number(x.msg_type) === 2)
+        return this.chatNoteList.filter(x => (Number(x.msg_type) === 2 || Number(x.msg_type) === 3) && x.is_image)
       }
       if (this.activeTab === 'text') {
-        return this.chatNoteList.filter(x => Number(x.msg_type) !== 2 && Number(x.msg_type) !== 3)
+        return this.chatNoteList.filter(x => {
+          const t = Number(x.msg_type)
+          return t !== 2 && t !== 3
+        })
       }
       return this.chatNoteList
     }
@@ -102,6 +131,16 @@ export default {
     }
   },
   methods: {
+    isImageUrlOrName (fileName, url) {
+      const n = (fileName || '').toLowerCase()
+      const u = (url || '').toLowerCase()
+      return /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(n) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(u)
+    },
+    isVideoUrlOrName (fileName, url) {
+      const n = (fileName || '').toLowerCase()
+      const u = (url || '').toLowerCase()
+      return /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(n) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(u)
+    },
     normalizeChatNoteListFromStore (friendId) {
       const list = this.$store.state.messagesByFriend[String(friendId)] || []
       const friend = this.$store.state.chatFriendList.find(x => String(x.id) === String(friendId)) ||
@@ -115,11 +154,21 @@ export default {
         .slice()
         .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0))
         .map((m, idx) => {
-          const isImage = Number(m.msg_type) === 2
-          const isFile = Number(m.msg_type) === 3
-          const context = isImage
-            ? '[图片]'
-            : (isFile ? `[文件] ${m.file_name || ''}`.trim() : (m.msg || ''))
+          const msgType = Number(m.msg_type) || 1
+          const fileUrl = String(m.file_url || m.msg || '').trim()
+          const fileName = m.file_name != null ? String(m.file_name) : ''
+          const isMedia = (msgType === 2 || msgType === 3) && !!fileUrl
+          const isImage = isMedia && this.isImageUrlOrName(fileName, fileUrl)
+          const isVideo = isMedia && !isImage && this.isVideoUrlOrName(fileName, fileUrl)
+          const isFile = Number(m.msg_type) === 3 && !fileUrl
+          let context = m.msg || ''
+          if (msgType === 2 || msgType === 3) {
+            if (isImage) context = '[图片]'
+            else if (isVideo) context = '[视频]'
+            else context = fileName ? `[文件] ${fileName}` : '[文件]'
+          } else if (isFile) {
+            context = fileName ? `[文件] ${fileName}` : '[文件]'
+          }
           const senderName = m.outgoing ? myName : friendName
           const senderAvatar = m.outgoing ? myAvatar : friendAvatar
           const t = Number(m.timestamp)
@@ -132,7 +181,11 @@ export default {
             user_picture: senderAvatar,
             context,
             time_string: timeString,
-            msg_type: Number(m.msg_type) || 1
+            msg_type: msgType,
+            file_url: fileUrl,
+            file_name: fileName,
+            is_image: isImage,
+            is_video: isVideo
           }
         })
     },
@@ -343,5 +396,28 @@ export default {
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+.note-media-link {
+  display: inline-block;
+  max-width: 100%;
+}
+.note-thumb {
+  display: block;
+  max-width: 200px;
+  max-height: 160px;
+  border-radius: 8px;
+  vertical-align: top;
+}
+.note-video {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  border-radius: 8px;
+  background: #111;
+}
+.note-file-link {
+  color: #2830d3;
+  font-size: 14px;
+  word-break: break-all;
 }
 </style>

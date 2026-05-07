@@ -50,7 +50,15 @@ export default {
       if (!list.length) return '你们已成为好友，现在可以开始聊天了'
       const latest = list[list.length - 1] || {}
       if (Number(latest.msg_type) === 2) {
-        return '[图片]'
+        const name = (latest.file_name || '').toLowerCase()
+        const url = String(latest.file_url || latest.msg || '').toLowerCase()
+        if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(name) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)) {
+          return '[图片]'
+        }
+        if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(name) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(url)) {
+          return '[视频]'
+        }
+        return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
       }
       if (Number(latest.msg_type) === 3) {
         return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'

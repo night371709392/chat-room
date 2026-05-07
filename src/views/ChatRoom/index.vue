@@ -121,6 +121,7 @@ export default {
       url: '/api/chat/show/all',
       method: 'get'
     }).then(res => {
+      console.log(res)
       if (res.data.error !== 'success') return
       const raw = res.data.list || []
       const chatList = raw.map(item => ({

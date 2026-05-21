@@ -76,11 +76,13 @@ export default {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .index-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-right: 4px;
 }
 .empty-tip {
   margin: 24px 0;
@@ -89,9 +91,32 @@ export default {
   color: #909399;
 }
 .contact-index-list >>> .van-index-bar__sidebar {
+  position: absolute;
+  top: 50%;
   right: 2px;
-  font-size: 10px;
-  line-height: 14px;
+  transform: translateY(-50%);
+  z-index: 100;
+  font-size: 15px !important;
+  line-height: 22px;
+  text-align: center;
+  padding: 6px 1px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  user-select: none;
+}
+.contact-index-list >>> .van-index-bar__index {
+  display: block;
+  padding: 3px 6px;
+  font-size: 15px !important;
+  color: #606266;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+}
+.contact-index-list >>> .van-index-bar__index--active {
+  color: #2830D3;
+  font-weight: 600;
+  background: rgba(40, 48, 211, 0.1);
 }
 .contact-index-list >>> .van-index-anchor {
   padding: 4px 12px;
@@ -99,9 +124,6 @@ export default {
   color: #909399;
   background: #f5f6f8;
   line-height: 20px;
-}
-.contact-index-list >>> .van-index-bar__index {
-  padding: 0 2px;
 }
 .contact-index-list .item {
   height: 60px;

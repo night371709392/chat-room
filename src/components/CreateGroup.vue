@@ -54,8 +54,10 @@ export default {
           group_name: this.groupName
         }
       }).then(res => {
-        if (res.data === 'success') {
+        console.log(res)
+        if (res.data.message === 'success') {
           Toast('创建成功')
+          this.$store.dispatch('fetchGroupList')
           this.closePage()
         }
       })

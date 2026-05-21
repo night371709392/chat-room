@@ -46,9 +46,7 @@ export default {
       return this.$store.state.userGroupList
     }
   },
-  created () {
-    this.fetchGroupList()
-  },
+  created () {},
   methods: {
     openPage () {
       this.$store.commit('openCreateGroupPage')
@@ -58,25 +56,7 @@ export default {
       return String(item.group_name ?? item.name ?? '').trim() || '-'
     },
     onSelectGroup (item) {
-      // 群聊详情/会话页接入后可在此跳转
       console.log('[group] select', item)
-    },
-    fetchGroupList () {
-      this.$axios({
-        url: '/api/group/list',
-        method: 'get'
-      }).then(res => {
-        console.log(res)
-        const ok = res.data && (res.data.error === 'success' || res.data.err === 'success')
-        if (!ok) return
-        const raw = res.data.list || res.data.groups || []
-        const list = (Array.isArray(raw) ? raw : []).map(row => ({
-          group_id: row.group_id ?? row.id,
-          group_name: row.group_name ?? row.name ?? '',
-          group_picture: row.group_picture ?? row.picture ?? row.avatar ?? ''
-        }))
-        this.$store.commit('setUserGroupList', list)
-      }).catch(() => {})
     }
   }
 }

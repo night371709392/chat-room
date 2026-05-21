@@ -486,6 +486,22 @@ const store = new Vuex.Store({
       } finally {
         commit('setFriendDetailLoading', false)
       }
+    },
+    async fetchGroupList ({ commit }) {
+      try {
+        const res = await axios.get('/api/group/create/list')
+        const ok = res.data && (res.data.error === 'success' || res.data.err === 'success')
+        if (!ok) return
+        const raw = res.data.list || res.data.groups || []
+        const list = (Array.isArray(raw) ? raw : []).map(row => ({
+          group_id: row.group_id ?? row.id,
+          group_name: row.group_name ?? row.name ?? '',
+          group_picture: row.group_picture ?? row.picture ?? row.avatar ?? ''
+        }))
+        commit('setUserGroupList', list)
+      } catch (e) {
+        console.warn('[fetchGroupList]', e)
+      }
     }
   }
 })

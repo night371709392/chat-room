@@ -33,7 +33,12 @@ export default {
     },
     isActive () {
       if (!this.friendDetail) return false
-      return this.activeSubStatus === 'friend' && String(this.$store.state.currentChatFriendId) === String(this.friendDetail.id)
+      if (this.activeSubStatus !== 'friend') return false
+      const current = this.$store.state.currentFriendDetail
+      if (!current) return false
+      const currentType = current.type || 'friend'
+      const itemType = this.friendDetail.type || 'friend'
+      return String(current.id) === String(this.friendDetail.id) && currentType === itemType
     },
     latestMessageTimeText () {
       if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') return '刚刚'

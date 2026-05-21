@@ -7,7 +7,7 @@
       <div class="message">
         <ContactItem
           v-for="item in chatFriendList"
-          :key="item.id"
+          :key="(item.type || 'friend') + '-' + item.id"
           :friend-detail="item"
         ></ContactItem>
       </div>

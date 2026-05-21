@@ -118,12 +118,7 @@ export default {
     })
 
     // 获取当前用户的群列表
-    this.$axios({
-      url: '/api/group/create/list',
-      method: 'get'
-    }).then(res => {
-      console.log(res)
-    })
+    this.$store.dispatch('fetchGroupList')
 
     // 获取当前用户的会话列表
     this.$axios({
@@ -132,12 +127,16 @@ export default {
     }).then(res => {
       if (res.data.error !== 'success') return
       const raw = res.data.list || []
-      const chatList = raw.map(item => ({
-        id: item.friend_id,
-        username: item.friend_name,
-        avatar: item.friend_picture,
-        nickname: item.friend_name
-      }))
+      const chatList = raw.map(item => {
+        const isGroup = !!(item.group_id)
+        return {
+          id: item.friend_id || item.group_id || item.id,
+          type: isGroup ? 'group' : 'friend',
+          username: item.friend_name || item.group_name || '',
+          avatar: item.friend_picture || item.group_picture || '',
+          nickname: item.friend_name || item.group_name || ''
+        }
+      })
       this.$store.commit('setChatFriendList', chatList)
     })
   }

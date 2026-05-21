@@ -167,6 +167,7 @@ const store = new Vuex.Store({
     userSignature: '', // 用户个性签名
 
     userFriendList: [], // 用户好友列表，用来保存用户通讯录的好友
+    userGroupList: [], // 用户群聊列表
     currentFriendDetail: null, // 当前选中的好友详情
     friendDetailLoading: false, // 好友主页接口拉取中（用于详情区加载态）
     chatFriendList: [], // 聊天会话好友列表
@@ -222,6 +223,9 @@ const store = new Vuex.Store({
     },
     setUserFriendList (state, friendList) {
       state.userFriendList = friendList
+    },
+    setUserGroupList (state, list) {
+      state.userGroupList = Array.isArray(list) ? list : []
     },
     setCurrentFriendDetail (state, friendDetail) {
       state.currentFriendDetail = friendDetail

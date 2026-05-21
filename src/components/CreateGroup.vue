@@ -12,12 +12,12 @@
       <div class="content">
         <p>请输入群聊名称</p>
         <div class="ipt">
-          <input type="text">
+          <input type="text" v-model="groupName">
         </div>
       </div>
       <div class="btns">
         <button class="cancel" @click="closePage">取消</button>
-        <button class="ensure">确定</button>
+        <button class="ensure" @click="createGroup">确定</button>
       </div>
     </van-popup>
   </div>
@@ -26,15 +26,39 @@
 <script>
 
 import { Icon } from 'vant'
+import { Toast } from 'vant'
 
 export default {
   name: 'CreateGroup',
+  data () {
+    return {
+      groupName: ''
+    }
+  },
   components: {
     vanIcon: Icon
   },
   methods: {
     closePage () {
       this.$store.commit('closeCreateGroupPage')
+    },
+    createGroup () {
+      if (!this.groupName.trim()) {
+        Toast('请输入群聊名称')
+        return
+      }
+      this.$axios({
+        url: '/api/group/add',
+        method: 'post',
+        data: {
+          group_name: this.groupName
+        }
+      }).then(res => {
+        if (res.data === 'success') {
+          Toast('创建成功')
+          this.closePage()
+        }
+      })
     }
   }
 }

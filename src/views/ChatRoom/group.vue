@@ -7,16 +7,76 @@
         </div>
         <button @click="openPage"><i class="ri ri-add-line"></i></button>
       </div>
+
+      <ContactIndexList
+        :items="groupList"
+        :get-name="groupDisplayName"
+        item-key="group_id"
+        empty-text="暂无群聊"
+        @select="onSelectGroup"
+      >
+        <template #item="{ item }">
+          <div class="head-image">
+            <img :src="item.group_picture || defaultAvatar" alt="">
+          </div>
+          <div class="right">
+            <p>{{ groupDisplayName(item) }}</p>
+          </div>
+        </template>
+      </ContactIndexList>
     </div>
   </div>
 </template>
 
 <script>
+import ContactIndexList from '@/components/ContactIndexList.vue'
+
 export default {
   name: 'GroupPage',
+  components: {
+    ContactIndexList
+  },
+  data () {
+    return {
+      defaultAvatar: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    }
+  },
+  computed: {
+    groupList () {
+      return this.$store.state.userGroupList
+    }
+  },
+  created () {
+    this.fetchGroupList()
+  },
   methods: {
     openPage () {
       this.$store.commit('openCreateGroupPage')
+    },
+    groupDisplayName (item) {
+      if (!item) return '-'
+      return String(item.group_name ?? item.name ?? '').trim() || '-'
+    },
+    onSelectGroup (item) {
+      // 群聊详情/会话页接入后可在此跳转
+      console.log('[group] select', item)
+    },
+    fetchGroupList () {
+      this.$axios({
+        url: '/api/group/list',
+        method: 'get'
+      }).then(res => {
+        console.log(res)
+        const ok = res.data && (res.data.error === 'success' || res.data.err === 'success')
+        if (!ok) return
+        const raw = res.data.list || res.data.groups || []
+        const list = (Array.isArray(raw) ? raw : []).map(row => ({
+          group_id: row.group_id ?? row.id,
+          group_name: row.group_name ?? row.name ?? '',
+          group_picture: row.group_picture ?? row.picture ?? row.avatar ?? ''
+        }))
+        this.$store.commit('setUserGroupList', list)
+      }).catch(() => {})
     }
   }
 }
@@ -35,7 +95,7 @@ export default {
   box-shadow: 2px 0 8px rgba(0, 0, 0, .05);
 }
 .group .list {
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -44,6 +104,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 0px 12px;
+  flex-shrink: 0;
 }
 .group .list .header .ipt {
   width: 192px;
@@ -83,5 +144,20 @@ export default {
   color: #3458DA;
   font-size: 18px;
   font-style: normal;
+}
+.group .list >>> .item .head-image {
+  width: 45px;
+  height: 45px;
+}
+.group .list >>> .item .head-image img {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+}
+.group .list >>> .item .right {
+  padding-left: 10px;
+  text-align: left;
+  flex: 1;
+  font-size: 14px;
 }
 </style>

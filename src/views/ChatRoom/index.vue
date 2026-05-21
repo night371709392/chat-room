@@ -109,11 +109,20 @@ export default {
     // 获取当前用户的通讯录好友 
     this.$axios({
       url: '/api/contact/list',
-      method: 'post'
+      method: 'get'
     }).then(res => {
+      console.log(res)
       if (res.data.error === 'success') {
         this.$store.commit('setUserFriendList', res.data.list)
       }
+    })
+
+    // 获取当前用户的群列表
+    this.$axios({
+      url: '/api/group/create/list',
+      method: 'get'
+    }).then(res => {
+      console.log(res)
     })
 
     // 获取当前用户的会话列表
@@ -121,7 +130,6 @@ export default {
       url: '/api/chat/show/all',
       method: 'get'
     }).then(res => {
-      console.log(res)
       if (res.data.error !== 'success') return
       const raw = res.data.list || []
       const chatList = raw.map(item => ({

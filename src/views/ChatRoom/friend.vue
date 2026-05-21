@@ -8,24 +8,32 @@
         <button @click="openPage"><i class="ri ri-add-line"></i></button>
       </div>
 
-      <div class="item" @click="setSubStatus('newfriend')">
-        <div class="head-image">
-          <img src="@/assets/img/ChatRoom/newfriend.png" alt="">
-        </div>
-        <div class="right">
-          <p>新的朋友</p>
-        </div>
-      </div>
-      
-      <!-- 好友列表渲染 -->
-      <div class="item" @click="selectFriendDetail(item)" v-for="item in friendList" :key="item.friend_id">
-        <div class="head-image">
-          <img :src="item.friend_picture" alt="">
-        </div>
-        <div class="right">
-          <p>{{ contactDisplayName(item) }}</p>
-        </div>
-      </div>
+      <ContactIndexList
+        :items="friendList"
+        :get-name="contactDisplayName"
+        item-key="friend_id"
+        empty-text="暂无好友"
+        @select="selectFriendDetail"
+      >
+        <template #before>
+          <div class="item pinned" @click="setSubStatus('newfriend')">
+            <div class="head-image">
+              <img src="@/assets/img/ChatRoom/newfriend.png" alt="">
+            </div>
+            <div class="right">
+              <p>新的朋友</p>
+            </div>
+          </div>
+        </template>
+        <template #item="{ item }">
+          <div class="head-image">
+            <img :src="item.friend_picture" alt="">
+          </div>
+          <div class="right">
+            <p>{{ contactDisplayName(item) }}</p>
+          </div>
+        </template>
+      </ContactIndexList>
 
     </div>
   </div>
@@ -34,9 +42,13 @@
 <script>
 import axios from 'axios'
 import { extractFriendMainRow } from '@/utils/contactFriendMain'
+import ContactIndexList from '@/components/ContactIndexList.vue'
 
 export default {
   name: 'FriendPage',
+  components: {
+    ContactIndexList
+  },
   data () {
     return {
       friendDetailAbortController: null,
@@ -66,13 +78,11 @@ export default {
     },
     setSubStatus (status) {
       this.$store.commit('setChatSubStatus', status)
-      // console.log('当前聊天子状态:', this.$store.state.chatSubStatus)
     },
     isCanceledAxiosError (err) {
       return axios.isCancel(err) || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError'
     },
 
-    // 统一格式化好友信息；partial 为 true 时不猜性别、不填默认签名，避免接口返回前误导用户
     normalizeFriendDetail (item, opts) {
       const partial = opts && opts.partial === true
       const rawGender = item.gender ?? item.friend_gender
@@ -110,7 +120,6 @@ export default {
       this.loadFriendDetail(friendItem)
     },
 
-    // 获取好友详情（快速切换时取消未完成请求，避免旧响应覆盖新选中好友）
     loadFriendDetail (friendItem) {
       if (this.friendDetailAbortController) {
         this.friendDetailAbortController.abort()
@@ -147,7 +156,7 @@ export default {
         this.$store.commit('setFriendDetailLoading', false)
       })
     }
-  },
+  }
 }
 </script>
 
@@ -173,6 +182,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 0px 12px;
+  flex-shrink: 0;
 }
 .friend .list .header .ipt {
   width: 192px;
@@ -213,26 +223,24 @@ export default {
   font-size: 18px;
   font-style: normal;
 }
-.friend .list .item {
+.friend .list >>> .item.pinned {
   height: 60px;
   display: flex;
-  position: relative;
   padding: 5px 10px;
   align-items: center;
-  white-space: nowrap;
   cursor: pointer;
   border-bottom: 1px solid rgba(0, 0, 0, .08);
 }
-.friend .list .item .head-image {
+.friend .list >>> .item .head-image {
   width: 45px;
   height: 45px;
 }
-.friend .list .item .head-image img {
+.friend .list >>> .item .head-image img {
   width: 45px;
   height: 45px;
   border-radius: 50%;
 }
-.friend .list .item .right {
+.friend .list >>> .item .right {
   padding-left: 10px;
   text-align: left;
   flex: 1;

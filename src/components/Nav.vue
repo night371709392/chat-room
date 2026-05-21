@@ -7,21 +7,21 @@
         <ul>
             <li title="消息">
                 <router-link to="/chathome/chat">
-                  <van-badge dot>
+                  <van-badge>
                     <i class="ri ri-message-3-line"></i>
                   </van-badge>
                 </router-link>
             </li>
             <li title="朋友">
                 <router-link to="/chathome/friend">
-                  <van-badge dot>
+                  <van-badge>
                     <i class="ri ri-user-heart-line"></i>
                   </van-badge>
                 </router-link>
             </li>
             <li title="群聊">
                 <router-link to="/chathome/group">
-                  <van-badge dot>
+                  <van-badge>
                     <i class="ri ri-team-line"></i>
                   </van-badge>
                 </router-link>

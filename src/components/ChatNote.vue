@@ -146,7 +146,8 @@ export default {
       const friend = this.$store.state.chatFriendList.find(x => String(x.id) === String(friendId)) ||
         this.$store.state.currentFriendDetail ||
         {}
-      const friendName = friend.nickname || friend.username || '好友'
+      const isGroup = friend.type === 'group'
+      const friendName = friend.nickname || friend.username || (isGroup ? '群聊' : '好友')
       const friendAvatar = friend.avatar || friend.picture || friend.friend_picture || ''
       const myName = this.$store.state.userName || '我'
       const myAvatar = this.$store.state.userPicture || ''
@@ -169,8 +170,17 @@ export default {
           } else if (isFile) {
             context = fileName ? `[文件] ${fileName}` : '[文件]'
           }
-          const senderName = m.outgoing ? myName : friendName
-          const senderAvatar = m.outgoing ? myAvatar : friendAvatar
+          let senderName, senderAvatar
+          if (m.outgoing) {
+            senderName = myName
+            senderAvatar = myAvatar
+          } else if (isGroup && m.sender_name) {
+            senderName = m.sender_name
+            senderAvatar = m.sender_picture || friendAvatar
+          } else {
+            senderName = friendName
+            senderAvatar = friendAvatar
+          }
           const t = Number(m.timestamp)
           const timeString = Number.isFinite(t) && t > 0
             ? new Date(t).toLocaleString()
@@ -209,7 +219,12 @@ export default {
       const seq = ++this.reqSeq
       this.loading = true
 
-      this.$store.dispatch('fetchChatHistory', { friendId: fid }).then(() => {
+      const isGroup = (this.$store.state.chatFriendList.find(x => String(x.id) === String(fid)) || {}).type === 'group' ||
+        (this.$store.state.currentFriendDetail || {}).type === 'group'
+      const action = isGroup ? 'fetchGroupChatHistory' : 'fetchChatHistory'
+      const payload = isGroup ? { groupId: fid } : { friendId: fid }
+
+      this.$store.dispatch(action, payload).then(() => {
         // 若用户切换到其他好友，丢弃旧请求结果
         if (seq !== this.reqSeq) return
         const nextList = this.normalizeChatNoteListFromStore(fid)

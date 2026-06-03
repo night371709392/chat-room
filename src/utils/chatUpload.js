@@ -2,14 +2,18 @@ import axios from 'axios'
 
 /**
  * POST /chat/upload（经 devServer 代理为 /api/chat/upload）
- * formData: file（必填）、receiver_id（integer）
+ * formData: file（必填）、receiver_id（integer）或 group_id（integer）
  * 成功后从 JSON 中取可访问 URL（优先 abs_url），再经 Socket msg_type=2 发送。
  *
- * 覆盖环境变量：VUE_APP_CHAT_UPLOAD_URL、VUE_APP_CHAT_UPLOAD_FIELD
+ * 覆盖环境变量：VUE_APP_CHAT_UPLOAD_URL、VUE_APP_CHAT_UPLOAD_FIELD、VUE_APP_GROUP_UPLOAD_URL
  */
 const DEFAULT_UPLOAD_URL =
   (typeof process !== 'undefined' && process.env && process.env.VUE_APP_CHAT_UPLOAD_URL) ||
   '/api/chat/upload'
+
+const DEFAULT_GROUP_UPLOAD_URL =
+  (typeof process !== 'undefined' && process.env && process.env.VUE_APP_GROUP_UPLOAD_URL) ||
+  '/api/group/upload'
 
 function pickUrlFromObject (obj) {
   if (!obj || typeof obj !== 'object') return ''
@@ -63,23 +67,24 @@ function pickFileNameFromObject (obj, fallback) {
 
 /**
  * @param {File} file
- * @param {{ receiverId: number|string, uploadUrl?: string, fieldName?: string }} options
+ * @param {{ receiverId?: number|string, groupId?: number|string, uploadUrl?: string, fieldName?: string }} options
  * @returns {Promise<{ url: string, fileName: string }>}
  */
 export async function uploadChatAttachment (file, options = {}) {
   if (!file || !(file instanceof File)) {
     throw new Error('无效文件')
   }
-  const rid = options.receiverId
+  const isGroup = !!(options.groupId != null && options.groupId !== '')
+  const rid = isGroup ? options.groupId : options.receiverId
   if (rid === null || rid === undefined || rid === '') {
-    throw new Error('缺少接收方 receiver_id')
+    throw new Error('缺少接收方 id')
   }
   const n = Number(rid)
   if (!Number.isFinite(n) || n <= 0) {
-    throw new Error('receiver_id 无效')
+    throw new Error('id 无效')
   }
 
-  const uploadUrl = options.uploadUrl || DEFAULT_UPLOAD_URL
+  const uploadUrl = options.uploadUrl || (isGroup ? DEFAULT_GROUP_UPLOAD_URL : DEFAULT_UPLOAD_URL)
   const fieldName =
     options.fieldName ||
     (typeof process !== 'undefined' && process.env && process.env.VUE_APP_CHAT_UPLOAD_FIELD) ||
@@ -87,7 +92,11 @@ export async function uploadChatAttachment (file, options = {}) {
 
   const form = new FormData()
   form.append(fieldName, file)
-  form.append('receiver_id', String(n))
+  if (isGroup) {
+    form.append('group_id', String(n))
+  } else {
+    form.append('receiver_id', String(n))
+  }
 
   const res = await axios.post(uploadUrl, form)
   const data = res.data

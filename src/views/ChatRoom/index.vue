@@ -10,6 +10,8 @@
 
     <friendDetail v-show="showFriendDetail"></friendDetail>
 
+    <GroupDetail v-show="showGroupDetail"></GroupDetail>
+
     <!-- 右侧内容区：设置页保持原有 setting 子路由 -->
     <router-view v-show="showSettingView" name="setting" class="setting-view"></router-view>
 
@@ -30,6 +32,7 @@ import NewFriend from '@/components/NewFriend.vue'
 import ChatNote from '@/components/ChatNote.vue'
 import Avatar from '@/components/Avatar.vue'
 import friendDetail from '@/components/friendDetail.vue'
+import GroupDetail from '@/components/GroupDetail.vue'
 
 export default {
   name: 'ChatRoom',
@@ -41,7 +44,8 @@ export default {
     NewFriend,
     ChatNote,
     Avatar,
-    friendDetail
+    friendDetail,
+    GroupDetail
   },
   computed: {
     hasCurrentChatFriend () {
@@ -61,6 +65,9 @@ export default {
     showFriendDetail () {
       return this.$route.path === '/chathome/friend' && this.$store.state.chatSubStatus === 'friendDetail'
     },
+    showGroupDetail () {
+      return this.$route.path === '/chathome/group' && this.$store.state.chatSubStatus === 'groupDetail'
+    },
     showSettingView () {
       return this.$route.path.indexOf('/chathome/setting') === 0
     }
@@ -73,6 +80,12 @@ export default {
           this.$store.commit('setCurrentFriendDetail', null)
           this.$store.commit('setFriendDetailLoading', false)
         }
+        return
+      }
+      if (to === '/chathome/group') {
+        this.$store.commit('setChatSubStatus', '')
+        this.$store.commit('setCurrentGroupDetail', null)
+        this.$store.commit('setGroupDetailLoading', false)
         return
       }
       if (to === '/chathome/chat') {
@@ -111,7 +124,6 @@ export default {
       url: '/api/contact/list',
       method: 'get'
     }).then(res => {
-      console.log(res)
       if (res.data.error === 'success') {
         this.$store.commit('setUserFriendList', res.data.list)
       }

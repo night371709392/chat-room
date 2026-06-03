@@ -29,6 +29,7 @@
 </template>
 
 <script>
+import axios from 'axios'
 import ContactIndexList from '@/components/ContactIndexList.vue'
 
 export default {
@@ -38,7 +39,9 @@ export default {
   },
   data () {
     return {
-      defaultAvatar: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+      defaultAvatar: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg',
+      groupDetailAbortController: null,
+      groupDetailRequestSeq: 0
     }
   },
   computed: {
@@ -46,7 +49,13 @@ export default {
       return this.$store.state.userGroupList
     }
   },
-  created () {},
+  beforeDestroy () {
+    if (this.groupDetailAbortController) {
+      this.groupDetailAbortController.abort()
+      this.groupDetailAbortController = null
+    }
+    this.$store.commit('setGroupDetailLoading', false)
+  },
   methods: {
     openPage () {
       this.$store.commit('openCreateGroupPage')
@@ -56,7 +65,63 @@ export default {
       return String(item.group_name ?? item.name ?? '').trim() || '-'
     },
     onSelectGroup (item) {
-      console.log('[group] select', item)
+      if (this.$store.state.chatSubStatus !== 'groupDetail') {
+        this.$store.commit('setChatSubStatus', 'groupDetail')
+      }
+      this.loadGroupDetail(item)
+    },
+    isCanceledAxiosError (err) {
+      return axios.isCancel(err) || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError'
+    },
+    loadGroupDetail (groupItem) {
+      if (this.groupDetailAbortController) {
+        this.groupDetailAbortController.abort()
+      }
+      const controller = new AbortController()
+      this.groupDetailAbortController = controller
+
+      const groupId = Number(groupItem.group_id ?? groupItem.id)
+
+      const fallback = {
+        group_id: groupId,
+        group_name: groupItem.group_name ?? groupItem.name ?? '',
+        group_picture: groupItem.group_picture ?? groupItem.picture ?? ''
+      }
+
+      this.$store.commit('setGroupDetailLoading', true)
+      this.$store.commit('setCurrentGroupDetail', fallback)
+
+      const seq = ++this.groupDetailRequestSeq
+
+      this.$axios.post('/api/group/one/main', {
+        group_id: groupId
+      }, {
+        signal: controller.signal
+      }).then(res => {
+        console.log(res)
+        if (seq !== this.groupDetailRequestSeq) return
+        if (controller.signal.aborted) return
+        const ok = res.data && (res.data.error === 'success' || res.data.err === 'success')
+        if (!ok) return
+        const raw = res.data.group || {}
+        const detail = {
+          ...fallback,
+          group_name: raw.group_name ?? raw.name ?? fallback.group_name,
+          group_picture: raw.group_picture ?? raw.picture ?? raw.avatar ?? fallback.group_picture,
+          owner_name: raw.leader_name ?? '',
+          remark: raw.group_rename ?? raw.remark ?? raw.group_re_name ?? '',
+          my_nickname: raw.user_rename ?? raw.nickname ?? ''
+        }
+        this.$store.commit('setCurrentGroupDetail', detail)
+      }).catch(err => {
+        if (seq !== this.groupDetailRequestSeq) return
+        if (this.isCanceledAxiosError(err)) return
+        console.warn('[loadGroupDetail]', err)
+      }).finally(() => {
+        if (seq !== this.groupDetailRequestSeq) return
+        this.$store.commit('setGroupDetailLoading', false)
+      })
+
     }
   }
 }

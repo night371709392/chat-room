@@ -48,11 +48,13 @@ export default {
       return this.formatTime(latest && latest.timestamp)
     },
     latestMessagePreview () {
+      const isGroup = (this.friendDetail && this.friendDetail.type) === 'group'
+      const emptyText = isGroup ? '' : '你们已成为好友，现在可以开始聊天了'
       if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') {
-        return '你们已成为好友，现在可以开始聊天了'
+        return emptyText
       }
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
-      if (!list.length) return '你们已成为好友，现在可以开始聊天了'
+      if (!list.length) return emptyText
       const latest = list[list.length - 1] || {}
       if (Number(latest.msg_type) === 2) {
         const name = (latest.file_name || '').toLowerCase()
@@ -69,7 +71,7 @@ export default {
         return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
       }
       const text = latest.msg != null ? String(latest.msg).trim() : ''
-      return text || '你们已成为好友，现在可以开始聊天了'
+      return text || emptyText
     }
   },
   methods: {

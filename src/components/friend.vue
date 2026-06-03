@@ -14,7 +14,7 @@
         ><i class="ri ri-more-2-line"></i></span>
       </div>
       <div class="main" ref="mainScroll">
-        <div class="message-tip">
+        <div v-if="!isGroupChat" class="message-tip">
           你们已成为好友，现在可以开始聊天了
         </div>
         <Message
@@ -27,7 +27,8 @@
     </div>
     <aside class="friend-set-aside" :class="{ open: showFriendSet }">
       <div v-if="currentChatFriendId" class="friend-set-shell">
-        <FriendSet :visible="showFriendSet" @close="showFriendSet = false" />
+        <FriendSet v-if="!isGroupChat" :visible="showFriendSet" @close="showFriendSet = false" />
+        <GroupSet v-else :visible="showFriendSet" @close="showFriendSet = false" />
       </div>
     </aside>
   </div>
@@ -37,13 +38,15 @@
 import Message from './message.vue'
 import ChatContent from './ChatContent.vue'
 import FriendSet from './friendSet.vue'
+import GroupSet from './GroupSet.vue'
 
 export default {
   name: 'FriendChatPage',
   components: {
     Message,
     ChatContent,
-    FriendSet
+    FriendSet,
+    GroupSet
   },
   data () {
     return {
@@ -58,6 +61,12 @@ export default {
       const currentId = this.$store.state.currentChatFriendId
       if (currentId === null || currentId === undefined) return null
       return this.$store.state.chatFriendList.find(item => String(item.id) === String(currentId)) || null
+    },
+    isGroupChat () {
+      const f = this.currentChatFriend
+      if (f && f.type) return f.type === 'group'
+      const d = this.$store.state.currentFriendDetail
+      return !!(d && d.type === 'group')
     },
     friendName () {
       if (!this.currentChatFriend) return '聊天'
@@ -75,7 +84,11 @@ export default {
       const id = this.currentChatFriendId
       if (id == null || id === '') return
       if (n != null && n !== '' && (o == null || o === '')) {
-        this.$store.dispatch('fetchChatHistory', { friendId: id })
+        if (this.isGroupChat) {
+          this.$store.dispatch('fetchGroupChatHistory', { groupId: id })
+        } else {
+          this.$store.dispatch('fetchChatHistory', { friendId: id })
+        }
       }
     },
     currentChatFriendId: {
@@ -83,8 +96,13 @@ export default {
       handler (id) {
         this.showFriendSet = false
         if (id === null || id === undefined || id === '') return
-        this.$store.dispatch('fetchChatHistory', { friendId: id })
-        this.$store.dispatch('markChatRead', { friendId: id })
+        if (this.isGroupChat) {
+          this.$store.dispatch('fetchGroupChatHistory', { groupId: id })
+          this.$store.dispatch('markGroupRead', { groupId: id })
+        } else {
+          this.$store.dispatch('fetchChatHistory', { friendId: id })
+          this.$store.dispatch('markChatRead', { friendId: id })
+        }
         this.$nextTick(() => this.scrollToBottom())
       }
     },

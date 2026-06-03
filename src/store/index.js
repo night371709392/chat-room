@@ -17,6 +17,10 @@ Vue.use(Vuex)
 const MAX_PENDING_PRIVATE_WS = 50
 const pendingPrivateRawQueue = []
 
+/** userId 尚未写入时暂存群聊 WS */
+const MAX_PENDING_GROUP_WS = 50
+const pendingGroupRawQueue = []
+
 // 默认头像信息
 const default_avatar = {
   id: 1,
@@ -63,6 +67,7 @@ function normalizeFriendDetailRow (item, opts) {
   const friend_remark = item.friend_remark ?? item.remark ?? ''
   return {
     id: item.id ?? item.friend_id ?? '',
+    type: item.type,
     username: item.username ?? item.name ?? item.friend_name ?? '',
     nickname: item.nickname ?? item.remark ?? item.friend_remark ?? item.friend_name ?? item.name ?? '',
     remark: remark != null ? String(remark) : '',
@@ -89,6 +94,20 @@ function touchChatFriendToTop (state, friendId, fallback) {
     )
     if (fromContact) {
       detail = normalizeFriendDetailRow(fromContact)
+    }
+  }
+  if (!detail) {
+    const fromGroup = (state.userGroupList || []).find(
+      item => String(item.group_id ?? item.id) === fid
+    )
+    if (fromGroup) {
+      detail = {
+        id: fromGroup.group_id ?? fromGroup.id,
+        type: 'group',
+        username: fromGroup.group_name ?? fromGroup.name ?? '',
+        avatar: fromGroup.group_picture ?? fromGroup.picture ?? fromGroup.avatar ?? '',
+        nickname: fromGroup.group_name ?? fromGroup.name ?? ''
+      }
     }
   }
   if (!detail && fallback) {
@@ -149,6 +168,75 @@ function applyChatIncomingPrivate (state, raw, userId) {
   touchChatFriendToTop(state, peerId)
 }
 
+function applyGroupIncomingMessage (state, raw, userId) {
+  const me = userId != null && userId !== '' ? Number(userId) : NaN
+  if (!Number.isFinite(me)) return
+
+  const groupId = raw.group_id ?? raw.groupId
+  if (!groupId && groupId !== 0) {
+    console.warn('[groupIncomingMessage] 缺少 group_id', raw)
+    return
+  }
+  const gid = String(groupId)
+  const senderId = raw.sender_id ?? raw.senderId
+  const outgoing = Number.isFinite(me) &&
+    Number.isFinite(senderId) &&
+    senderId === me
+
+  const prev = state.messagesByFriend[gid] || []
+  if (outgoing && Number(raw.msg_type) === 1) {
+    const text = String(raw.msg || '').trim()
+    if (text) {
+      const dup = prev.some(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 1 &&
+        !m.failed &&
+        String(m.msg || '').trim() === text
+      )
+      if (dup) return
+    }
+  }
+  if (outgoing && (Number(raw.msg_type) === 2 || Number(raw.msg_type) === 3)) {
+    const url = String(raw.url || raw.msg || '').trim()
+    if (url) {
+      const dup = prev.some(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 2 &&
+        !m.failed &&
+        (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
+      )
+      if (dup) return
+    }
+  }
+
+  const tsRaw = raw.time_string || raw.timestamp || raw.create_time || raw.msg_time
+  let ts = null
+  if (tsRaw != null) {
+    const parsed = new Date(tsRaw).getTime()
+    if (!Number.isNaN(parsed)) ts = parsed
+  }
+  if (ts == null && raw._client_received_at != null) {
+    ts = Number(raw._client_received_at)
+  }
+  const idTs = ts != null ? ts : Date.now()
+  const id = raw.msg_id != null ? String(raw.msg_id) : `gin-${idTs}-${Math.random().toString(36).slice(2, 9)}`
+  const row = {
+    id,
+    outgoing,
+    pending: false,
+    failed: false,
+    msg_type: raw.msg_type || 1,
+    msg: raw.msg || '',
+    file_url: raw.url || raw.file_url || '',
+    file_name: raw.file_name || '',
+    timestamp: ts,
+    sender_name: raw.sender_name || '',
+    sender_picture: raw.sender_picture || ''
+  }
+  Vue.set(state.messagesByFriend, gid, prev.concat(row))
+  touchChatFriendToTop(state, groupId)
+}
+
 const store = new Vuex.Store({
   state: {
     // 页面
@@ -170,6 +258,8 @@ const store = new Vuex.Store({
     userGroupList: [], // 用户群聊列表
     currentFriendDetail: null, // 当前选中的好友详情
     friendDetailLoading: false, // 好友主页接口拉取中（用于详情区加载态）
+    currentGroupDetail: null, // 当前选中的群聊详情
+    groupDetailLoading: false, // 群聊详情接口拉取中
     chatFriendList: [], // 聊天会话好友列表
     currentChatFriendId: null, // 当前聊天会话好友id
 
@@ -233,6 +323,12 @@ const store = new Vuex.Store({
     setFriendDetailLoading (state, loading) {
       state.friendDetailLoading = !!loading
     },
+    setCurrentGroupDetail (state, detail) {
+      state.currentGroupDetail = detail
+    },
+    setGroupDetailLoading (state, loading) {
+      state.groupDetailLoading = !!loading
+    },
     openFriendChat (state, friendDetail) {
       if (!friendDetail) return
       const friendId = friendDetail.id
@@ -292,16 +388,73 @@ const store = new Vuex.Store({
         }
       }
     },
+    applyGroupRemark (state, { groupId, remark }) {
+      const gid = groupId != null ? String(groupId) : ''
+      if (!gid) return
+      const r = remark != null ? String(remark).trim() : ''
+
+      const cidx = state.chatFriendList.findIndex(item => String(item.id) === gid)
+      if (cidx > -1) {
+        const cur = state.chatFriendList[cidx]
+        const baseName = cur.username || ''
+        Vue.set(state.chatFriendList, cidx, {
+          ...cur,
+          remark: r,
+          nickname: r || baseName
+        })
+      }
+
+      const d = state.currentFriendDetail
+      if (d && String(d.id) === gid) {
+        const base = d.username || ''
+        state.currentFriendDetail = {
+          ...d,
+          remark: r,
+          nickname: r || base
+        }
+      }
+
+      const g = state.currentGroupDetail
+      if (g && String(g.group_id) === gid) {
+        state.currentGroupDetail = {
+          ...g,
+          remark: r
+        }
+      }
+    },
+    applyGroupNickname (state, { groupId, nickname }) {
+      const gid = groupId != null ? String(groupId) : ''
+      if (!gid) return
+      const n = nickname != null ? String(nickname).trim() : ''
+
+      const d = state.currentFriendDetail
+      if (d && String(d.id) === gid) {
+        state.currentFriendDetail = {
+          ...d,
+          my_nickname: n
+        }
+      }
+
+      const g = state.currentGroupDetail
+      if (g && String(g.group_id) === gid) {
+        state.currentGroupDetail = {
+          ...g,
+          my_nickname: n
+        }
+      }
+    },
     setUserId (state, id) {
       if (id === null || id === undefined || id === '') {
         state.userId = null
         pendingPrivateRawQueue.length = 0
+        pendingGroupRawQueue.length = 0
         return
       }
       const n = Number(id)
       state.userId = Number.isFinite(n) ? n : null
       if (!Number.isFinite(state.userId)) {
         pendingPrivateRawQueue.length = 0
+        pendingGroupRawQueue.length = 0
         return
       }
       const uid = state.userId
@@ -311,12 +464,19 @@ const store = new Vuex.Store({
           applyChatIncomingPrivate(state, raw, uid)
         }
       }
+      if (pendingGroupRawQueue.length) {
+        const batch = pendingGroupRawQueue.splice(0, pendingGroupRawQueue.length)
+        for (const raw of batch) {
+          applyGroupIncomingMessage(state, raw, uid)
+        }
+      }
     },
     setSocketConnected (state, v) {
       state.socketConnected = !!v
     },
     clearChatSession (state) {
       pendingPrivateRawQueue.length = 0
+      pendingGroupRawQueue.length = 0
       state.userId = null
       state.messagesByFriend = {}
       state.socketConnected = false
@@ -391,6 +551,37 @@ const store = new Vuex.Store({
       nextList[idx] = { ...cur, pending: false, failed: true }
       Vue.set(state.messagesByFriend, key, nextList)
     },
+    groupMessageAck (state, { group_id, msg_type }) {
+      if (group_id === null || group_id === undefined || group_id === '') return
+      const key = String(group_id)
+      const list = state.messagesByFriend[key]
+      if (!list || !list.length) return
+      const matchType = msg_type != null ? Number(msg_type) : null
+      const idx = list.findIndex(m => {
+        if (!m.outgoing || !m.pending || m.failed) return false
+        if (matchType == null || Number.isNaN(matchType)) return true
+        return Number(m.msg_type) === matchType
+      })
+      if (idx === -1) return
+      const cur = list[idx]
+      const next = {
+        ...cur,
+        pending: false
+      }
+      const nextList = list.slice()
+      nextList[idx] = next
+      Vue.set(state.messagesByFriend, key, nextList)
+    },
+    groupIncomingMessage (state, { raw, userId }) {
+      const me = userId != null && userId !== '' ? Number(userId) : NaN
+      if (!Number.isFinite(me)) {
+        if (pendingGroupRawQueue.length < MAX_PENDING_GROUP_WS) {
+          pendingGroupRawQueue.push(raw)
+        }
+        return
+      }
+      applyGroupIncomingMessage(state, raw, userId)
+    },
     chatIncomingPrivate (state, { raw, userId }) {
       const me = userId != null && userId !== '' ? Number(userId) : NaN
       if (!Number.isFinite(me)) {
@@ -420,7 +611,7 @@ const store = new Vuex.Store({
         if (m.pending) return true
         if (m.failed) return true
         const id = m.id != null ? String(m.id) : ''
-        if (id.startsWith('in-') || id.startsWith('p-') || id.startsWith('hist-')) {
+        if (id.startsWith('in-') || id.startsWith('p-') || id.startsWith('hist-') || id.startsWith('gin-') || /^\d+$/.test(id)) {
           return !serverKeys.has(dedupeKey(m))
         }
         return false
@@ -458,6 +649,11 @@ const store = new Vuex.Store({
       const fid = friendId != null ? Number(friendId) : NaN
       if (!Number.isFinite(fid)) return Promise.resolve()
       return axios.post('/api/chat/read', { receiver_id: fid }).catch(() => {})
+    },
+    markGroupRead (ctx, { groupId }) {
+      const gid = groupId != null ? Number(groupId) : NaN
+      if (!Number.isFinite(gid)) return Promise.resolve()
+      return axios.post('/api/group/read', { group_id: gid }).catch(() => {})
     },
     /** 从通讯录或会话列表拼装占位信息并拉取好友主页，供聊天气泡头像跳转详情使用 */
     async fetchFriendDetailPanel ({ commit, state }, { friendId }) {
@@ -501,6 +697,30 @@ const store = new Vuex.Store({
         commit('setUserGroupList', list)
       } catch (e) {
         console.warn('[fetchGroupList]', e)
+      }
+    },
+    async fetchGroupChatHistory ({ commit, state }, { groupId }) {
+      const gid = groupId != null ? Number(groupId) : NaN
+      if (!Number.isFinite(gid)) return
+      try {
+        const { hydrateUserIdFromToken } = await import('@/utils/jwtUserId')
+        hydrateUserIdFromToken()
+        const res = await axios.get('/api/chat/history', {
+          params: { receiver_id: gid, group_id: gid, page: 1, size: 50 }
+        })
+        const data = res.data
+        if (!isHistorySuccess(data)) {
+          console.warn('[fetchGroupChatHistory] 接口未返回 success', data)
+          return
+        }
+        const rawList = extractHistoryList(data)
+        const me = state.userId != null ? Number(state.userId) : NaN
+        const normalized = rawList
+          .map((row, i) => normalizeHistoryRow(row, me, i, gid))
+          .filter(Boolean)
+        commit('setFriendMessagesFromHistory', { friendId: gid, messages: normalized })
+      } catch (e) {
+        console.warn('[fetchGroupChatHistory]', e)
       }
     }
   }

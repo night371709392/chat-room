@@ -7,9 +7,10 @@
         role="presentation"
         @click.stop="onAvatarClick"
       >
-        <img :src="item.outgoing ? myAvatarUrl : friendAvatarUrl" alt="头像">
+        <img :src="avatarUrl" alt="头像">
       </div>
       <div class="bubble-wrap">
+        <div v-if="showSenderName" class="sender-name">{{ senderName }}</div>
         <div v-if="isFileBubble" class="message-bubble file-bubble">
           <template v-if="fileHref">
             <a
@@ -53,8 +54,18 @@ export default {
   computed: {
     isFileBubble () {
       const t = Number(this.item.msg_type)
-      // 与部分后端约定一致：2=文件/图片，3=附件或图片
       return t === 2 || t === 3
+    },
+    isGroupChat () {
+      const d = this.$store.state.currentFriendDetail
+      if (d && d.type) return d.type === 'group'
+      const list = this.$store.state.chatFriendList
+      const fid = this.$store.state.currentChatFriendId
+      if (fid && list.length) {
+        const peer = list.find(item => String(item.id) === String(fid))
+        return !!(peer && peer.type === 'group')
+      }
+      return false
     },
     myAvatarUrl () {
       return this.$store.state.selectedAvatarUrl || this.$store.state.userPicture || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
@@ -66,6 +77,20 @@ export default {
     },
     friendAvatarUrl () {
       return this.currentChatFriend?.avatar || 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
+    },
+    avatarUrl () {
+      if (this.item.outgoing) return this.myAvatarUrl
+      if (this.isGroupChat && this.item.sender_picture) return this.item.sender_picture
+      return this.friendAvatarUrl
+    },
+    showSenderName () {
+      if (!this.isGroupChat) return false
+      if (this.item.outgoing) return false
+      return !!(this.senderName)
+    },
+    senderName () {
+      const n = this.item.sender_name || ''
+      return String(n).trim()
     },
     fileHref () {
       const u = this.item.file_url || this.item.msg
@@ -97,6 +122,7 @@ export default {
   methods: {
     onAvatarClick () {
       if (this.item.outgoing) return
+      if (this.isGroupChat) return
       const id = this.$store.state.currentChatFriendId
       if (id === null || id === undefined || id === '') return
       this.$store.dispatch('fetchFriendDetailPanel', { friendId: id })
@@ -218,5 +244,11 @@ export default {
 }
 .meta.failed {
   color: #e54d42;
+}
+.sender-name {
+  font-size: 12px;
+  color: #8b90a0;
+  margin-bottom: 2px;
+  padding-left: 2px;
 }
 </style>

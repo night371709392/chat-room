@@ -281,6 +281,9 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     msgType = 2
     if (!msgVal) msgVal = fileUrl
   }
+  const senderName = firstStr(row, ['sender_name', 'senderName', 'SenderName', 'nickname', 'nickName'])
+  const senderPicture = firstStr(row, ['sender_picture', 'senderPicture', 'SenderPicture', 'picture', 'avatar'])
+
   return {
     id: `hist-${fid}-${Number.isFinite(ts) ? ts : 0}-${index}`,
     outgoing,
@@ -290,7 +293,10 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     msg: msgVal,
     file_url: fileUrl,
     file_name: fileNameHint,
-    timestamp: Number.isFinite(ts) ? ts : 0
+    timestamp: Number.isFinite(ts) ? ts : 0,
+    sender_id: senderId,
+    sender_name: senderName,
+    sender_picture: senderPicture
   }
 }
 

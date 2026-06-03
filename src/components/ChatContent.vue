@@ -67,6 +67,17 @@ export default {
       if (id !== null && id !== undefined && id !== '') return id
       return this.$store.state.currentFriendDetail?.id ?? null
     },
+    isGroupChat () {
+      const d = this.$store.state.currentFriendDetail
+      if (d && d.type) return d.type === 'group'
+      const list = this.$store.state.chatFriendList
+      const fid = this.currentFriendId
+      if (fid && list.length) {
+        const peer = list.find(item => String(item.id) === String(fid))
+        return !!(peer && peer.type === 'group')
+      }
+      return false
+    },
     sendDisabled () {
       const t = this.draft.trim()
       return !this.currentFriendId || !t
@@ -145,7 +156,10 @@ export default {
       let serverUrl = ''
       let uploadFileName = fileName
       try {
-        const uploaded = await uploadChatAttachment(file, { receiverId: fid })
+        const uploadOpts = this.isGroupChat
+          ? { groupId: fid }
+          : { receiverId: fid }
+        const uploaded = await uploadChatAttachment(file, uploadOpts)
         serverUrl = uploaded.url
         uploadFileName = uploaded.fileName || fileName
       } catch (err) {
@@ -176,7 +190,9 @@ export default {
         file_name: uploadFileName
       })
 
-      const ok = this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)
+      const ok = this.isGroupChat
+        ? this.$socket.emitGroupFile(fid, serverUrl, uploadFileName)
+        : this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)
       if (!ok) {
         this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
         Toast.fail(this.socketConnected ? '发送失败' : '未连接，请稍后重试')
@@ -200,7 +216,9 @@ export default {
         msg_type: 1
       })
 
-      const ok = this.$socket.emitPrivateText(fid, text)
+      const ok = this.isGroupChat
+        ? this.$socket.emitGroupText(fid, text)
+        : this.$socket.emitPrivateText(fid, text)
       if (!ok) {
         this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
         Toast.fail(this.socketConnected ? '发送失败' : '未连接，请稍后重试')

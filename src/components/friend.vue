@@ -66,7 +66,12 @@ export default {
       const f = this.currentChatFriend
       if (f && f.type) return f.type === 'group'
       const d = this.$store.state.currentFriendDetail
-      return !!(d && d.type === 'group')
+      if (d && d.type) return d.type === 'group'
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('chat_session'))
+        if (saved && saved.chatType) return saved.chatType === 'group'
+      } catch (_) { /* ignore */ }
+      return false
     },
     friendName () {
       if (!this.currentChatFriend) return '聊天'

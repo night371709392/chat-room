@@ -63,8 +63,12 @@ export default {
       const fid = this.$store.state.currentChatFriendId
       if (fid && list.length) {
         const peer = list.find(item => String(item.id) === String(fid))
-        return !!(peer && peer.type === 'group')
+        if (peer && peer.type) return peer.type === 'group'
       }
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('chat_session'))
+        if (saved && saved.chatType) return saved.chatType === 'group'
+      } catch (_) { /* ignore */ }
       return false
     },
     myAvatarUrl () {

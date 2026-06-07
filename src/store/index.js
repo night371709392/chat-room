@@ -237,7 +237,57 @@ function applyGroupIncomingMessage (state, raw, userId) {
   touchChatFriendToTop(state, groupId)
 }
 
+let persistMessagesTimer = null
+const MESSAGE_MUTATIONS = new Set([
+  'setFriendMessagesFromHistory',
+  'appendPendingOutMessage',
+  'updatePendingOutFileUrl',
+  'chatMessageAck',
+  'chatMessageSendFailed',
+  'groupMessageAck',
+  'groupIncomingMessage',
+  'chatIncomingPrivate',
+  'clearMessagesForFriend',
+  'clearChatSession'
+])
+
+function persistChatSession (store) {
+  store.subscribe((mutation, state) => {
+    if (mutation.type === 'setCurrentChatFriendId' || mutation.type === 'setChatSubStatus' || mutation.type === 'setCurrentFriendDetail') {
+      try {
+        sessionStorage.setItem('chat_session', JSON.stringify({
+          currentChatFriendId: state.currentChatFriendId,
+          chatSubStatus: state.chatSubStatus,
+          currentFriendDetail: state.currentFriendDetail,
+          chatType: (state.currentFriendDetail && state.currentFriendDetail.type)
+            || (state.currentChatFriendId
+              && state.chatFriendList.find(item => String(item.id) === String(state.currentChatFriendId))
+              && state.chatFriendList.find(item => String(item.id) === String(state.currentChatFriendId)).type)
+            || (() => {
+              try {
+                const prev = JSON.parse(sessionStorage.getItem('chat_session'))
+                return (prev && prev.chatType) || null
+              } catch (_) { return null }
+            })()
+            || null
+        }))
+      } catch (_) { /* ignore */ }
+    }
+    if (MESSAGE_MUTATIONS.has(mutation.type)) {
+      if (persistMessagesTimer) clearTimeout(persistMessagesTimer)
+      persistMessagesTimer = setTimeout(() => {
+        try {
+          sessionStorage.setItem('chat_messages', JSON.stringify(state.messagesByFriend))
+        } catch (_) { /* ignore */ }
+        persistMessagesTimer = null
+        store.commit('sortChatFriendList')
+      }, 300)
+    }
+  })
+}
+
 const store = new Vuex.Store({
+  plugins: [persistChatSession],
   state: {
     // 页面
     addFriendPage: false, // 添加好友页面
@@ -481,6 +531,20 @@ const store = new Vuex.Store({
       state.messagesByFriend = {}
       state.socketConnected = false
     },
+    restoreMessagesFromSession (state) {
+      try {
+        const saved = sessionStorage.getItem('chat_messages')
+        if (!saved) return
+        const parsed = JSON.parse(saved)
+        if (!parsed || typeof parsed !== 'object') return
+        for (const key of Object.keys(state.messagesByFriend)) {
+          Vue.delete(state.messagesByFriend, key)
+        }
+        for (const [key, msgs] of Object.entries(parsed)) {
+          Vue.set(state.messagesByFriend, key, msgs)
+        }
+      } catch (_) { /* ignore */ }
+    },
     appendPendingOutMessage (state, { friendId, msg, tempId, msg_type = 1, file_url = '', file_name = '' }) {
       const key = String(friendId)
       const prev = state.messagesByFriend[key] || []
@@ -618,6 +682,22 @@ const store = new Vuex.Store({
       })
       const merged = serverSorted.concat(extras).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
       Vue.set(state.messagesByFriend, key, merged)
+    },
+    sortChatFriendList (state) {
+      const list = state.chatFriendList || []
+      if (list.length <= 1) return
+      const sorted = [...list].sort((a, b) => {
+        const aId = String(a.id)
+        const bId = String(b.id)
+        const aMsgs = state.messagesByFriend[aId] || []
+        const bMsgs = state.messagesByFriend[bId] || []
+        const aLatest = aMsgs.length ? Number(aMsgs[aMsgs.length - 1].timestamp || 0) : 0
+        const bLatest = bMsgs.length ? Number(bMsgs[bMsgs.length - 1].timestamp || 0) : 0
+        const aFallback = aLatest || (Number(a.last_msg_time) || 0)
+        const bFallback = bLatest || (Number(b.last_msg_time) || 0)
+        return bFallback - aFallback
+      })
+      state.chatFriendList.splice(0, state.chatFriendList.length, ...sorted)
     }
   },
   actions: {
@@ -705,19 +785,47 @@ const store = new Vuex.Store({
       try {
         const { hydrateUserIdFromToken } = await import('@/utils/jwtUserId')
         hydrateUserIdFromToken()
-        const res = await axios.get('/api/chat/history', {
-          params: { receiver_id: gid, group_id: gid, page: 1, size: 50 }
+        const res = await axios.get('/api/group/history', {
+          params: { group_id: gid, page: 1, size: 50 }
         })
         const data = res.data
-        if (!isHistorySuccess(data)) {
-          console.warn('[fetchGroupChatHistory] 接口未返回 success', data)
-          return
+
+        let rawList = []
+        if (Array.isArray(data.msg)) {
+          rawList = data.msg
+        } else if (data.msg && typeof data.msg === 'object' && Array.isArray(data.msg.msg)) {
+          rawList = data.msg.msg
         }
-        const rawList = extractHistoryList(data)
+
+        if (!rawList.length) {
+          const existing = state.messagesByFriend[String(gid)]
+          if (existing && existing.length) return
+        }
+
         const me = state.userId != null ? Number(state.userId) : NaN
-        const normalized = rawList
-          .map((row, i) => normalizeHistoryRow(row, me, i, gid))
-          .filter(Boolean)
+        const normalized = rawList.map((item, i) => {
+          const sid = item.user_id ?? item.sender_id ?? item.from_id
+          const outgoing = Number.isFinite(me) && sid != null && Number(sid) === me
+          let ts = 0
+          const tsRaw = item.time_string || item.create_time || item.timestamp
+          if (tsRaw) {
+            const d = new Date(tsRaw).getTime()
+            if (!Number.isNaN(d)) ts = d
+          }
+          return {
+            id: `hist-${gid}-${ts || i}-${i}`,
+            outgoing,
+            pending: false,
+            failed: false,
+            msg_type: 1,
+            msg: item.msg || '',
+            file_url: '',
+            file_name: '',
+            timestamp: ts,
+            sender_name: item.user_name || item.sender_name || '',
+            sender_picture: item.user_picture || item.sender_picture || ''
+          }
+        })
         commit('setFriendMessagesFromHistory', { friendId: gid, messages: normalized })
       } catch (e) {
         console.warn('[fetchGroupChatHistory]', e)

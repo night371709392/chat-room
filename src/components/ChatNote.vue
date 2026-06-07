@@ -72,6 +72,7 @@
 
 <script>
 import { Icon } from 'vant'
+import axios from 'axios'
 
 export default {
   name: 'ChatNote',
@@ -206,11 +207,8 @@ export default {
 
       const cacheKey = String(fid)
       const now = Date.now()
-      const localList = this.normalizeChatNoteListFromStore(fid)
-      this.chatNoteList = localList
 
       const cache = this.cacheByFriend[cacheKey]
-      // 20s 内复用结果，避免频繁打开弹窗重复等待接口
       if (!forceRefresh && cache && (now - cache.ts < 20000)) {
         this.chatNoteList = cache.list
         return
@@ -221,11 +219,16 @@ export default {
 
       const isGroup = (this.$store.state.chatFriendList.find(x => String(x.id) === String(fid)) || {}).type === 'group' ||
         (this.$store.state.currentFriendDetail || {}).type === 'group'
-      const action = isGroup ? 'fetchGroupChatHistory' : 'fetchChatHistory'
-      const payload = isGroup ? { groupId: fid } : { friendId: fid }
 
-      this.$store.dispatch(action, payload).then(() => {
-        // 若用户切换到其他好友，丢弃旧请求结果
+      if (isGroup) {
+        this.fetchGroupHistoryFromApi(fid, seq, cacheKey)
+        return
+      }
+
+      const localList = this.normalizeChatNoteListFromStore(fid)
+      this.chatNoteList = localList
+
+      this.$store.dispatch('fetchChatHistory', { friendId: fid }).then(() => {
         if (seq !== this.reqSeq) return
         const nextList = this.normalizeChatNoteListFromStore(fid)
         this.chatNoteList = nextList
@@ -239,18 +242,51 @@ export default {
         }
       })
     },
-    fetchChatNoteList (friendId) {
-      // 兼容可能的旧调用入口，统一走优化后的加载逻辑
-      this.loadChatNote(friendId, { forceRefresh: true })
-    },
-    fetchChatNoteListFromApi (fid) {
-      return this.$axios({
-        url: '/api/chat/history',
-        method: 'get',
-        params: {
-          receiver_id: fid
+    async fetchGroupHistoryFromApi (groupId, seq, cacheKey) {
+      try {
+        const res = await axios.get('/api/group/history', {
+          params: { group_id: groupId }
+        })
+        if (seq !== this.reqSeq) return
+        const data = res.data
+
+        let msgList = []
+        if (Array.isArray(data.msg)) {
+          msgList = data.msg
+        } else if (data.msg && typeof data.msg === 'object' && Array.isArray(data.msg.msg)) {
+          msgList = data.msg.msg
+        } else if (Array.isArray(data.data)) {
+          msgList = data.data
+        } else if (data.data && Array.isArray(data.data.msg)) {
+          msgList = data.data.msg
+        } else if (Array.isArray(data.list)) {
+          msgList = data.list
         }
-      })
+
+        const list = msgList.map((item, idx) => ({
+          id: `gnote-${groupId}-${idx}`,
+          user_name: item.user_name || '',
+          user_picture: item.user_picture || '',
+          context: item.msg || '',
+          time_string: item.time_string || '',
+          msg_type: 1,
+          file_url: '',
+          file_name: '',
+          is_image: false,
+          is_video: false
+        }))
+        this.chatNoteList = list
+        this.cacheByFriend[cacheKey] = { ts: Date.now(), list }
+      } catch (e) {
+        console.warn('[ChatNote] 群聊历史加载失败', e)
+      } finally {
+        if (seq === this.reqSeq) {
+          this.loading = false
+        }
+      }
+    },
+    fetchChatNoteList (friendId) {
+      this.loadChatNote(friendId, { forceRefresh: true })
     },
     setTab (tab) {
       this.activeTab = tab

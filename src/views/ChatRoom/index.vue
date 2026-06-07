@@ -51,7 +51,8 @@ export default {
     hasCurrentChatFriend () {
       const currentId = this.$store.state.currentChatFriendId
       if (currentId === null || currentId === undefined || currentId === '') return false
-      return this.$store.state.chatFriendList.some(item => String(item.id) === String(currentId))
+      if (this.$store.state.chatFriendList.some(item => String(item.id) === String(currentId))) return true
+      return this.$store.state.chatFriendList.length === 0
     },
     showFriendChat () {
       return this.$route.path === '/chathome/chat' &&
@@ -98,7 +99,36 @@ export default {
     }
   },
   created () {
-    // 获取当前用户的信息
+    this.$store.commit('restoreMessagesFromSession')
+
+    let restoredChatType = null
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('chat_session'))
+      if (saved && saved.currentChatFriendId) {
+        if (saved.currentFriendDetail) {
+          this.$store.commit('setCurrentFriendDetail', saved.currentFriendDetail)
+          restoredChatType = saved.currentFriendDetail.type || null
+        } else if (saved.chatType) {
+          this.$store.commit('setCurrentFriendDetail', {
+            id: String(saved.currentChatFriendId),
+            type: saved.chatType
+          })
+          restoredChatType = saved.chatType
+        }
+        this.$store.commit('setCurrentChatFriendId', saved.currentChatFriendId)
+        this.$store.commit('setChatSubStatus', saved.chatSubStatus || 'friend')
+      }
+    } catch (_) { /* sessionStorage 读取失败，忽略 */ }
+
+    const cid = this.$store.state.currentChatFriendId
+    if (cid != null && cid !== '') {
+      if (restoredChatType === 'group') {
+        this.$store.dispatch('fetchGroupChatHistory', { groupId: cid })
+      } else {
+        this.$store.dispatch('fetchChatHistory', { friendId: cid })
+      }
+    }
+
     this.$axios({
       url: '/api/user/show/main',
       method: 'post'
@@ -119,7 +149,6 @@ export default {
         }
       }
     })
-    // 获取当前用户的通讯录好友 
     this.$axios({
       url: '/api/contact/list',
       method: 'get'
@@ -129,10 +158,8 @@ export default {
       }
     })
 
-    // 获取当前用户的群列表
     this.$store.dispatch('fetchGroupList')
 
-    // 获取当前用户的会话列表
     this.$axios({
       url: '/api/chat/show/all',
       method: 'get'
@@ -146,11 +173,29 @@ export default {
           type: isGroup ? 'group' : 'friend',
           username: item.friend_name || item.group_name || '',
           avatar: item.friend_picture || item.group_picture || '',
-          nickname: item.friend_name || item.group_name || ''
+          nickname: item.friend_name || item.group_name || '',
+          last_msg: item.last_msg || item.latest_msg || '',
+          last_msg_time: item.last_msg_time || item.latest_msg_time || item.time || ''
         }
       })
       this.$store.commit('setChatFriendList', chatList)
+      this.$store.commit('sortChatFriendList')
+
+      const cid2 = this.$store.state.currentChatFriendId
+      if (cid2 != null && cid2 !== '') {
+        const target = chatList.find(item => String(item.id) === String(cid2))
+        if (target) {
+          this.$store.commit('setCurrentFriendDetail', target)
+        }
+        if (target && target.type === 'group') {
+          this.$store.dispatch('fetchGroupChatHistory', { groupId: cid2 })
+        } else {
+          this.$store.dispatch('fetchChatHistory', { friendId: cid2 })
+        }
+      }
     })
+  },
+  methods: {
   }
 }
 </script>

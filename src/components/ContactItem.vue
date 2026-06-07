@@ -41,11 +41,20 @@ export default {
       return String(current.id) === String(this.friendDetail.id) && currentType === itemType
     },
     latestMessageTimeText () {
-      if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') return '刚刚'
+      if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') return ''
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
-      if (!list.length) return '刚刚'
-      const latest = list[list.length - 1]
-      return this.formatTime(latest && latest.timestamp)
+      if (list.length) {
+        const latest = list[list.length - 1]
+        return this.formatTime(latest && latest.timestamp)
+      }
+      const ts = this.friendDetail.last_msg_time
+      if (ts !== undefined && ts !== null && ts !== '') {
+        const n = Number(ts)
+        if (Number.isFinite(n)) return this.formatTime(n > 1e12 ? n : n * 1000)
+        const d = new Date(ts)
+        if (!Number.isNaN(d.getTime())) return this.formatTime(d.getTime())
+      }
+      return ''
     },
     latestMessagePreview () {
       const isGroup = (this.friendDetail && this.friendDetail.type) === 'group'
@@ -54,24 +63,30 @@ export default {
         return emptyText
       }
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
-      if (!list.length) return emptyText
-      const latest = list[list.length - 1] || {}
-      if (Number(latest.msg_type) === 2) {
-        const name = (latest.file_name || '').toLowerCase()
-        const url = String(latest.file_url || latest.msg || '').toLowerCase()
-        if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(name) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)) {
-          return '[图片]'
+      if (list.length) {
+        const latest = list[list.length - 1] || {}
+        if (Number(latest.msg_type) === 2) {
+          const name = (latest.file_name || '').toLowerCase()
+          const url = String(latest.file_url || latest.msg || '').toLowerCase()
+          if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(name) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)) {
+            return '[图片]'
+          }
+          if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(name) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(url)) {
+            return '[视频]'
+          }
+          return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
         }
-        if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(name) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(url)) {
-          return '[视频]'
+        if (Number(latest.msg_type) === 3) {
+          return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
         }
-        return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
+        const text = latest.msg != null ? String(latest.msg).trim() : ''
+        return text || emptyText
       }
-      if (Number(latest.msg_type) === 3) {
-        return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
+      const summary = this.friendDetail.last_msg
+      if (summary !== undefined && summary !== null && summary !== '') {
+        return String(summary)
       }
-      const text = latest.msg != null ? String(latest.msg).trim() : ''
-      return text || emptyText
+      return emptyText
     }
   },
   methods: {

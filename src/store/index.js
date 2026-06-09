@@ -168,14 +168,10 @@ function applyChatIncomingPrivate (state, raw, userId) {
   touchChatFriendToTop(state, peerId)
 }
 
-function applyGroupIncomingMessage (state, raw, userId) {
-  const me = userId != null && userId !== '' ? Number(userId) : NaN
-  if (!Number.isFinite(me)) return
-
+function normalizeGroupMessageRow (raw, prev, me) {
   const groupId = raw.group_id ?? raw.groupId
   if (!groupId && groupId !== 0) {
-    console.warn('[groupIncomingMessage] 缺少 group_id', raw)
-    return
+    return null
   }
   const gid = String(groupId)
   const senderId = raw.sender_id ?? raw.senderId
@@ -183,29 +179,29 @@ function applyGroupIncomingMessage (state, raw, userId) {
     Number.isFinite(senderId) &&
     senderId === me
 
-  const prev = state.messagesByFriend[gid] || []
+  const existing = prev || []
   if (outgoing && Number(raw.msg_type) === 1) {
     const text = String(raw.msg || '').trim()
     if (text) {
-      const dup = prev.some(m =>
+      const dup = existing.some(m =>
         m.outgoing &&
         Number(m.msg_type) === 1 &&
         !m.failed &&
         String(m.msg || '').trim() === text
       )
-      if (dup) return
+      if (dup) return null
     }
   }
   if (outgoing && (Number(raw.msg_type) === 2 || Number(raw.msg_type) === 3)) {
     const url = String(raw.url || raw.msg || '').trim()
     if (url) {
-      const dup = prev.some(m =>
+      const dup = existing.some(m =>
         m.outgoing &&
         Number(m.msg_type) === 2 &&
         !m.failed &&
         (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
       )
-      if (dup) return
+      if (dup) return null
     }
   }
 
@@ -220,19 +216,34 @@ function applyGroupIncomingMessage (state, raw, userId) {
   }
   const idTs = ts != null ? ts : Date.now()
   const id = raw.msg_id != null ? String(raw.msg_id) : `gin-${idTs}-${Math.random().toString(36).slice(2, 9)}`
-  const row = {
-    id,
-    outgoing,
-    pending: false,
-    failed: false,
-    msg_type: raw.msg_type || 1,
-    msg: raw.msg || '',
-    file_url: raw.url || raw.file_url || '',
-    file_name: raw.file_name || '',
-    timestamp: ts,
-    sender_name: raw.sender_name || '',
-    sender_picture: raw.sender_picture || ''
+  return {
+    gid,
+    groupId,
+    row: {
+      id,
+      outgoing,
+      pending: false,
+      failed: false,
+      msg_type: raw.msg_type || 1,
+      msg: raw.msg || '',
+      file_url: raw.url || raw.file_url || '',
+      file_name: raw.file_name || '',
+      timestamp: ts,
+      sender_name: raw.sender_name || '',
+      sender_picture: raw.sender_picture || ''
+    }
   }
+}
+
+function applyGroupIncomingMessage (state, raw, userId) {
+  const me = userId != null && userId !== '' ? Number(userId) : NaN
+  if (!Number.isFinite(me)) return
+
+  const result = normalizeGroupMessageRow(raw, state.messagesByFriend[String(raw.group_id ?? raw.groupId)] || [], me)
+  if (!result) return
+
+  const { gid, groupId, row } = result
+  const prev = state.messagesByFriend[gid] || []
   Vue.set(state.messagesByFriend, gid, prev.concat(row))
   touchChatFriendToTop(state, groupId)
 }
@@ -246,9 +257,11 @@ const MESSAGE_MUTATIONS = new Set([
   'chatMessageSendFailed',
   'groupMessageAck',
   'groupIncomingMessage',
+  'batchGroupIncomingMessages',
   'chatIncomingPrivate',
   'clearMessagesForFriend',
-  'clearChatSession'
+  'clearChatSession',
+  'groupReplayMessage'
 ])
 
 function persistChatSession (store) {
@@ -516,8 +529,26 @@ const store = new Vuex.Store({
       }
       if (pendingGroupRawQueue.length) {
         const batch = pendingGroupRawQueue.splice(0, pendingGroupRawQueue.length)
+        const buffer = {}
         for (const raw of batch) {
-          applyGroupIncomingMessage(state, raw, uid)
+          const gid = String(raw.group_id ?? raw.groupId)
+          if (!buffer[gid]) buffer[gid] = []
+          buffer[gid].push(raw)
+        }
+        for (const [gid, raws] of Object.entries(buffer)) {
+          const prev = state.messagesByFriend[gid] || []
+          const collector = [...prev]
+          let touched = false
+          for (const raw of raws) {
+            const result = normalizeGroupMessageRow(raw, collector, uid)
+            if (!result) continue
+            collector.push(result.row)
+            touched = true
+          }
+          if (touched) {
+            Vue.set(state.messagesByFriend, gid, collector)
+            touchChatFriendToTop(state, gid)
+          }
         }
       }
     },
@@ -656,6 +687,46 @@ const store = new Vuex.Store({
       }
       applyChatIncomingPrivate(state, raw, userId)
     },
+    batchGroupIncomingMessages (state, { buffer, userId }) {
+      const me = userId != null && userId !== '' ? Number(userId) : NaN
+      if (!Number.isFinite(me) || !buffer || typeof buffer !== 'object') return
+      const gids = []
+      for (const [gid, raws] of Object.entries(buffer)) {
+        if (!Array.isArray(raws) || !raws.length) continue
+        const prev = state.messagesByFriend[gid] || []
+        const collector = [...prev]
+        let touched = false
+        for (const raw of raws) {
+          const result = normalizeGroupMessageRow(raw, collector, me)
+          if (!result) continue
+          collector.push(result.row)
+          touched = true
+        }
+        if (touched) {
+          Vue.set(state.messagesByFriend, gid, collector)
+          gids.push(gid)
+        }
+      }
+      for (const gid of gids) {
+        touchChatFriendToTop(state, gid)
+      }
+    },
+    groupReplayMessage (state, { raw, userId }) {
+      const me = userId != null && userId !== '' ? Number(userId) : NaN
+      if (!Number.isFinite(me)) {
+        if (pendingGroupRawQueue.length < MAX_PENDING_GROUP_WS) {
+          pendingGroupRawQueue.push(raw)
+        }
+        return
+      }
+      const result = normalizeGroupMessageRow(raw, state.messagesByFriend[String(raw.group_id ?? raw.groupId)] || [], me)
+      if (!result) return
+      const prev = state.messagesByFriend[result.gid] || []
+      Vue.set(state.messagesByFriend, result.gid, prev.concat(result.row))
+    },
+    finishGroupReplay (state, { groupId }) {
+      touchChatFriendToTop(state, groupId)
+    },
     /**
      * 合并服务端历史与本地未同步气泡，避免拉历史覆盖掉已收到的 WS 消息
      */
@@ -789,43 +860,15 @@ const store = new Vuex.Store({
           params: { group_id: gid, page: 1, size: 50 }
         })
         const data = res.data
-
-        let rawList = []
-        if (Array.isArray(data.msg)) {
-          rawList = data.msg
-        } else if (data.msg && typeof data.msg === 'object' && Array.isArray(data.msg.msg)) {
-          rawList = data.msg.msg
+        if (!isHistorySuccess(data)) {
+          console.warn('[fetchGroupChatHistory] 接口未返回 success，已跳过写入', data)
+          return
         }
-
-        if (!rawList.length) {
-          const existing = state.messagesByFriend[String(gid)]
-          if (existing && existing.length) return
-        }
-
+        const rawList = extractHistoryList(data)
         const me = state.userId != null ? Number(state.userId) : NaN
-        const normalized = rawList.map((item, i) => {
-          const sid = item.user_id ?? item.sender_id ?? item.from_id
-          const outgoing = Number.isFinite(me) && sid != null && Number(sid) === me
-          let ts = 0
-          const tsRaw = item.time_string || item.create_time || item.timestamp
-          if (tsRaw) {
-            const d = new Date(tsRaw).getTime()
-            if (!Number.isNaN(d)) ts = d
-          }
-          return {
-            id: `hist-${gid}-${ts || i}-${i}`,
-            outgoing,
-            pending: false,
-            failed: false,
-            msg_type: 1,
-            msg: item.msg || '',
-            file_url: '',
-            file_name: '',
-            timestamp: ts,
-            sender_name: item.user_name || item.sender_name || '',
-            sender_picture: item.user_picture || item.sender_picture || ''
-          }
-        })
+        const normalized = rawList
+          .map((row, i) => normalizeHistoryRow(row, me, i, gid))
+          .filter(Boolean)
         commit('setFriendMessagesFromHistory', { friendId: gid, messages: normalized })
       } catch (e) {
         console.warn('[fetchGroupChatHistory]', e)

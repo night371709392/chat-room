@@ -101,33 +101,21 @@ export default {
   created () {
     this.$store.commit('restoreMessagesFromSession')
 
-    let restoredChatType = null
     try {
       const saved = JSON.parse(sessionStorage.getItem('chat_session'))
       if (saved && saved.currentChatFriendId) {
         if (saved.currentFriendDetail) {
           this.$store.commit('setCurrentFriendDetail', saved.currentFriendDetail)
-          restoredChatType = saved.currentFriendDetail.type || null
         } else if (saved.chatType) {
           this.$store.commit('setCurrentFriendDetail', {
             id: String(saved.currentChatFriendId),
             type: saved.chatType
           })
-          restoredChatType = saved.chatType
         }
         this.$store.commit('setCurrentChatFriendId', saved.currentChatFriendId)
         this.$store.commit('setChatSubStatus', saved.chatSubStatus || 'friend')
       }
     } catch (_) { /* sessionStorage 读取失败，忽略 */ }
-
-    const cid = this.$store.state.currentChatFriendId
-    if (cid != null && cid !== '') {
-      if (restoredChatType === 'group') {
-        this.$store.dispatch('fetchGroupChatHistory', { groupId: cid })
-      } else {
-        this.$store.dispatch('fetchChatHistory', { friendId: cid })
-      }
-    }
 
     this.$axios({
       url: '/api/user/show/main',

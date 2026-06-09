@@ -21,6 +21,8 @@ function resolveSocketBaseUrl () {
 class SocketService {
   constructor () {
     this.socket = null
+    this._replayBuffer = {}
+    this._replayTimer = null
   }
 
   get connected () {
@@ -82,24 +84,32 @@ class SocketService {
       }
       if (!data || typeof data !== 'object') return
       const t = data.type ?? data.Type
-      const userId = store.state.userId
-      switch (t) {
-        case 'ack':
-          store.commit('groupMessageAck', {
-            group_id: data.group_id ?? data.groupId,
-            msg_type: data.msg_type ?? data.msgType
-          })
-          break
-        case 'group':
-          if (data.time_string == null && data.create_time == null && data.msg_time == null && data.timestamp == null) {
-            data._client_received_at = clientReceivedAt
+
+      if (t === 'group') {
+        if (data.time_string == null && data.create_time == null && data.msg_time == null && data.timestamp == null) {
+          data._client_received_at = clientReceivedAt
+        }
+        if (data.replay) {
+          store.commit('groupReplayMessage', { raw: data, userId: store.state.userId })
+          if (data.replay_seq === data.replay_total) {
+            store.commit('finishGroupReplay', { groupId: data.group_id ?? data.groupId })
           }
-          store.commit('groupIncomingMessage', { raw: data, userId })
-          break
-        case 'recall_group':
-          break
-        default:
-          break
+          return
+        }
+        const gid = String(data.group_id ?? data.groupId)
+        if (!this._replayBuffer[gid]) {
+          this._replayBuffer[gid] = []
+        }
+        this._replayBuffer[gid].push(data)
+        this._scheduleFlush()
+        return
+      }
+
+      if (t === 'ack') {
+        store.commit('groupMessageAck', {
+          group_id: data.group_id ?? data.groupId,
+          msg_type: data.msg_type ?? data.msgType
+        })
       }
     }
 
@@ -117,6 +127,30 @@ class SocketService {
     this.socket.on('connect_error', () => {
       store.commit('setSocketConnected', false)
     })
+  }
+
+  _scheduleFlush () {
+    if (this._replayTimer !== null) return
+    this._replayTimer = Promise.resolve().then(() => {
+      this._flushReplayBuffer()
+    })
+  }
+
+  _flushReplayBuffer () {
+    this._replayTimer = null
+    const buffer = this._replayBuffer
+    this._replayBuffer = {}
+    const keys = Object.keys(buffer)
+    if (keys.length === 0) return
+    const userId = store.state.userId
+    store.commit('batchGroupIncomingMessages', { buffer, userId })
+  }
+
+  _clearReplayTimer () {
+    if (this._replayTimer !== null) {
+      clearTimeout(this._replayTimer)
+      this._replayTimer = null
+    }
   }
 
   connect () {
@@ -144,6 +178,8 @@ class SocketService {
 
   _destroySocket () {
     if (!this.socket) return
+    this._clearReplayTimer()
+    this._replayBuffer = {}
     this.socket.off('message')
     this.socket.off('group_message')
     this.socket.off('connect')

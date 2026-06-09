@@ -62,34 +62,47 @@ export default {
       if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') {
         return emptyText
       }
+      const backendSummary = this.friendDetail.last_msg_main || this.friendDetail.last_msg || ''
+      if (isGroup) {
+        const activeId = String(this.$store.state.currentChatFriendId || '')
+        const currentId = String(this.friendDetail.id)
+        const list = this.$store.state.messagesByFriend[currentId] || []
+        if (activeId !== currentId) {
+          return backendSummary || emptyText
+        }
+        if (!list.length) {
+          return backendSummary || emptyText
+        }
+        const latest = list[list.length - 1] || {}
+        return this.formatPreview(latest, backendSummary || emptyText)
+      }
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
       if (list.length) {
         const latest = list[list.length - 1] || {}
-        if (Number(latest.msg_type) === 2) {
-          const name = (latest.file_name || '').toLowerCase()
-          const url = String(latest.file_url || latest.msg || '').toLowerCase()
-          if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(name) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)) {
-            return '[图片]'
-          }
-          if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(name) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(url)) {
-            return '[视频]'
-          }
-          return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
-        }
-        if (Number(latest.msg_type) === 3) {
-          return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
-        }
-        const text = latest.msg != null ? String(latest.msg).trim() : ''
-        return text || emptyText
+        return this.formatPreview(latest, backendSummary || emptyText)
       }
-      const summary = this.friendDetail.last_msg
-      if (summary !== undefined && summary !== null && summary !== '') {
-        return String(summary)
-      }
-      return emptyText
+      return backendSummary || emptyText
     }
   },
   methods: {
+    formatPreview (latest, fallback) {
+      if (Number(latest.msg_type) === 2) {
+        const name = (latest.file_name || '').toLowerCase()
+        const url = String(latest.file_url || latest.msg || '').toLowerCase()
+        if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(name) || /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)) {
+          return '[图片]'
+        }
+        if (/\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(name) || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|$)/i.test(url)) {
+          return '[视频]'
+        }
+        return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
+      }
+      if (Number(latest.msg_type) === 3) {
+        return latest.file_name ? `[文件] ${latest.file_name}` : '[文件]'
+      }
+      const text = latest.msg != null ? String(latest.msg).trim() : ''
+      return text || fallback
+    },
     formatTime (ts) {
       const n = Number(ts)
       if (!Number.isFinite(n) || n <= 0) return '刚刚'

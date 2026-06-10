@@ -146,7 +146,16 @@ export default {
       }
     })
 
-    this.$store.dispatch('fetchGroupList')
+    this.$store.dispatch('fetchGroupList').then(() => {
+      const groups = this.$store.state.userGroupList || []
+      for (const g of groups) {
+        const gid = String(g.group_id ?? g.id)
+        if (!gid) continue
+        const msgs = this.$store.state.messagesByFriend[gid] || []
+        if (msgs.length > 0) continue
+        this.$store.dispatch('fetchGroupChatHistory', { groupId: gid })
+      }
+    })
 
     this.$axios({
       url: '/api/chat/show/all',
@@ -169,16 +178,22 @@ export default {
       this.$store.commit('setChatFriendList', chatList)
       this.$store.commit('sortChatFriendList')
 
+      for (const item of chatList) {
+        const id = String(item.id)
+        const msgs = this.$store.state.messagesByFriend[id] || []
+        if (msgs.length > 0) continue
+        if (item.type === 'group') {
+          this.$store.dispatch('fetchGroupChatHistory', { groupId: item.id })
+        } else {
+          this.$store.dispatch('fetchChatHistory', { friendId: item.id })
+        }
+      }
+
       const cid2 = this.$store.state.currentChatFriendId
       if (cid2 != null && cid2 !== '') {
         const target = chatList.find(item => String(item.id) === String(cid2))
         if (target) {
           this.$store.commit('setCurrentFriendDetail', target)
-        }
-        if (target && target.type === 'group') {
-          this.$store.dispatch('fetchGroupChatHistory', { groupId: cid2 })
-        } else {
-          this.$store.dispatch('fetchChatHistory', { friendId: cid2 })
         }
       }
     })

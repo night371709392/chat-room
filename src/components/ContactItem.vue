@@ -43,46 +43,19 @@ export default {
     latestMessageTimeText () {
       if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') return ''
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
-      if (list.length) {
-        const latest = list[list.length - 1]
-        return this.formatTime(latest && latest.timestamp)
-      }
-      const ts = this.friendDetail.last_msg_time
-      if (ts !== undefined && ts !== null && ts !== '') {
-        const n = Number(ts)
-        if (Number.isFinite(n)) return this.formatTime(n > 1e12 ? n : n * 1000)
-        const d = new Date(ts)
-        if (!Number.isNaN(d.getTime())) return this.formatTime(d.getTime())
-      }
-      return ''
+      if (!list.length) return ''
+      const latest = list[list.length - 1]
+      return this.formatTime(latest && latest.timestamp)
     },
     latestMessagePreview () {
-      const isGroup = (this.friendDetail && this.friendDetail.type) === 'group'
-      const emptyText = isGroup ? '' : '你们已成为好友，现在可以开始聊天了'
       if (!this.friendDetail || this.friendDetail.id == null || this.friendDetail.id === '') {
-        return emptyText
-      }
-      const backendSummary = this.friendDetail.last_msg_main || this.friendDetail.last_msg || ''
-      if (isGroup) {
-        const activeId = String(this.$store.state.currentChatFriendId || '')
-        const currentId = String(this.friendDetail.id)
-        const list = this.$store.state.messagesByFriend[currentId] || []
-        if (activeId !== currentId) {
-          return backendSummary || emptyText
-        }
-        if (!list.length) {
-          return backendSummary || emptyText
-        }
-        const latest = list[list.length - 1] || {}
-        return this.formatPreview(latest, backendSummary || emptyText)
+        return ''
       }
       const list = this.$store.state.messagesByFriend[String(this.friendDetail.id)] || []
-      if (list.length) {
-        const latest = list[list.length - 1] || {}
-        return this.formatPreview(latest, backendSummary || emptyText)
-      }
-      return backendSummary || emptyText
-    }
+      if (!list.length) return ''
+      const latest = list[list.length - 1] || {}
+      return this.formatPreview(latest, '')
+    },
   },
   methods: {
     formatPreview (latest, fallback) {

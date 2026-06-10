@@ -101,12 +101,20 @@ export default {
       handler (id) {
         this.showFriendSet = false
         if (id === null || id === undefined || id === '') return
+        const key = String(id)
+        const msgs = this.$store.state.messagesByFriend[key] || []
+        if (msgs.length > 0) {
+          this.$nextTick(() => this.scrollToBottom())
+          return
+        }
+        if (this.$store.state.pendingHistoryLoads[key]) {
+          this.$nextTick(() => this.scrollToBottom())
+          return
+        }
         if (this.isGroupChat) {
           this.$store.dispatch('fetchGroupChatHistory', { groupId: id })
-          this.$store.dispatch('markGroupRead', { groupId: id })
         } else {
           this.$store.dispatch('fetchChatHistory', { friendId: id })
-          this.$store.dispatch('markChatRead', { friendId: id })
         }
         this.$nextTick(() => this.scrollToBottom())
       }

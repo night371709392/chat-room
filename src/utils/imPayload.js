@@ -152,6 +152,10 @@ function unwrapHistoryRow (row) {
     const m = row.message
     if (m.context != null || m.msg != null || m.sender_id != null || m.senderId != null) return m
   }
+  if (row.msg && typeof row.msg === 'object' && !Array.isArray(row.msg)) {
+    const m = row.msg
+    if (m.context != null || m.msg != null || m.sender_id != null || m.senderId != null) return m
+  }
   return row
 }
 
@@ -305,6 +309,7 @@ export function isHistorySuccess (data) {
   if (data.error === 'success' || data.err === 'success') return true
   if (data.msg === 'success' || data.message === 'success') return true
   if (data.code === 0 || data.code === '0') return true
+  if (data.msg && typeof data.msg === 'object' && !Array.isArray(data.msg)) return true
   return false
 }
 
@@ -331,6 +336,11 @@ export function extractHistoryList (data) {
   if (data.result && typeof data.result === 'object') {
     const r = data.result
     const inner = r.list || r.List || r.records || r.items || r.rows || r.data || r.messages
+    if (Array.isArray(inner)) return inner
+  }
+  if (data.msg && typeof data.msg === 'object' && !Array.isArray(data.msg)) {
+    const m = data.msg
+    const inner = m.msg || m.list || m.List || m.messages || m.rows || m.records || m.items || m.data
     if (Array.isArray(inner)) return inner
   }
   return []

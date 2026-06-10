@@ -10,6 +10,7 @@ import {
   bubbleDedupeKey
 } from "@/utils/imPayload"
 import { extractFriendMainRow } from "@/utils/contactFriendMain"
+import { hydrateUserIdFromToken } from "@/utils/jwtUserId"
 
 Vue.use(Vuex)
 
@@ -260,8 +261,7 @@ const MESSAGE_MUTATIONS = new Set([
   'batchGroupIncomingMessages',
   'chatIncomingPrivate',
   'clearMessagesForFriend',
-  'clearChatSession',
-  'groupReplayMessage'
+  'clearChatSession'
 ])
 
 function persistChatSession (store) {
@@ -329,6 +329,7 @@ const store = new Vuex.Store({
     userId: null, // 当前登录用户 id（用于区分收发、对齐历史记录）
     messagesByFriend: {}, // { [friendId]: ChatBubble[] }
     socketConnected: false,
+    pendingHistoryLoads: {}, // { [key]: true } 正在拉取历史的聊天，防止重复 dispatch
 
     // 选择的头像信息
     selectedAvatarId: null,
@@ -711,18 +712,7 @@ const store = new Vuex.Store({
         touchChatFriendToTop(state, gid)
       }
     },
-    groupReplayMessage (state, { raw, userId }) {
-      const me = userId != null && userId !== '' ? Number(userId) : NaN
-      if (!Number.isFinite(me)) {
-        if (pendingGroupRawQueue.length < MAX_PENDING_GROUP_WS) {
-          pendingGroupRawQueue.push(raw)
-        }
-        return
-      }
-      const result = normalizeGroupMessageRow(raw, state.messagesByFriend[String(raw.group_id ?? raw.groupId)] || [], me)
-      if (!result) return
-      const prev = state.messagesByFriend[result.gid] || []
-      Vue.set(state.messagesByFriend, result.gid, prev.concat(result.row))
+    groupReplayMessage () {
     },
     finishGroupReplay (state, { groupId }) {
       touchChatFriendToTop(state, groupId)
@@ -775,8 +765,10 @@ const store = new Vuex.Store({
     async fetchChatHistory ({ commit, state }, { friendId }) {
       const fid = friendId != null ? Number(friendId) : NaN
       if (!Number.isFinite(fid)) return
+      const key = String(fid)
+      if (state.pendingHistoryLoads[key]) return
+      Vue.set(state.pendingHistoryLoads, key, true)
       try {
-        const { hydrateUserIdFromToken } = await import('@/utils/jwtUserId')
         hydrateUserIdFromToken()
         const res = await axios.get('/api/chat/history', {
           params: { receiver_id: fid, page: 1, size: 50 }
@@ -794,17 +786,9 @@ const store = new Vuex.Store({
         commit('setFriendMessagesFromHistory', { friendId: fid, messages: normalized })
       } catch (e) {
         console.warn('[fetchChatHistory]', e)
+      } finally {
+        Vue.delete(state.pendingHistoryLoads, key)
       }
-    },
-    markChatRead (ctx, { friendId }) {
-      const fid = friendId != null ? Number(friendId) : NaN
-      if (!Number.isFinite(fid)) return Promise.resolve()
-      return axios.post('/api/chat/read', { receiver_id: fid }).catch(() => {})
-    },
-    markGroupRead (ctx, { groupId }) {
-      const gid = groupId != null ? Number(groupId) : NaN
-      if (!Number.isFinite(gid)) return Promise.resolve()
-      return axios.post('/api/group/read', { group_id: gid }).catch(() => {})
     },
     /** 从通讯录或会话列表拼装占位信息并拉取好友主页，供聊天气泡头像跳转详情使用 */
     async fetchFriendDetailPanel ({ commit, state }, { friendId }) {
@@ -853,8 +837,10 @@ const store = new Vuex.Store({
     async fetchGroupChatHistory ({ commit, state }, { groupId }) {
       const gid = groupId != null ? Number(groupId) : NaN
       if (!Number.isFinite(gid)) return
+      const key = String(gid)
+      if (state.pendingHistoryLoads[key]) return
+      Vue.set(state.pendingHistoryLoads, key, true)
       try {
-        const { hydrateUserIdFromToken } = await import('@/utils/jwtUserId')
         hydrateUserIdFromToken()
         const res = await axios.get('/api/group/history', {
           params: { group_id: gid, page: 1, size: 50 }
@@ -872,6 +858,8 @@ const store = new Vuex.Store({
         commit('setFriendMessagesFromHistory', { friendId: gid, messages: normalized })
       } catch (e) {
         console.warn('[fetchGroupChatHistory]', e)
+      } finally {
+        Vue.delete(state.pendingHistoryLoads, key)
       }
     }
   }

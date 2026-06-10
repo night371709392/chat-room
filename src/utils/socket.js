@@ -83,19 +83,21 @@ class SocketService {
         }
       }
       if (!data || typeof data !== 'object') return
+
       const t = data.type ?? data.Type
 
       if (t === 'group') {
         if (data.time_string == null && data.create_time == null && data.msg_time == null && data.timestamp == null) {
           data._client_received_at = clientReceivedAt
         }
+
         if (data.replay) {
-          store.commit('groupReplayMessage', { raw: data, userId: store.state.userId })
           if (data.replay_seq === data.replay_total) {
             store.commit('finishGroupReplay', { groupId: data.group_id ?? data.groupId })
           }
           return
         }
+
         const gid = String(data.group_id ?? data.groupId)
         if (!this._replayBuffer[gid]) {
           this._replayBuffer[gid] = []

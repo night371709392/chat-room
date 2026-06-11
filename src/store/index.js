@@ -286,6 +286,11 @@ function persistChatSession (store) {
         }))
       } catch (_) { /* ignore */ }
     }
+    if (mutation.type === 'setUserGroupList') {
+      try {
+        sessionStorage.setItem('user_group_list', JSON.stringify(state.userGroupList))
+      } catch (_) { /* ignore */ }
+    }
     if (MESSAGE_MUTATIONS.has(mutation.type)) {
       if (persistMessagesTimer) clearTimeout(persistMessagesTimer)
       persistMessagesTimer = setTimeout(() => {

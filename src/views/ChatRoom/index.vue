@@ -102,6 +102,13 @@ export default {
     this.$store.commit('restoreMessagesFromSession')
 
     try {
+      const savedGroups = JSON.parse(sessionStorage.getItem('user_group_list'))
+      if (Array.isArray(savedGroups) && savedGroups.length) {
+        this.$store.commit('setUserGroupList', savedGroups)
+      }
+    } catch (_) { /* ignore */ }
+
+    try {
       const saved = JSON.parse(sessionStorage.getItem('chat_session'))
       if (saved && saved.currentChatFriendId) {
         if (saved.currentFriendDetail) {
@@ -116,6 +123,15 @@ export default {
         this.$store.commit('setChatSubStatus', saved.chatSubStatus || 'friend')
       }
     } catch (_) { /* sessionStorage 读取失败，忽略 */ }
+
+    const groups = this.$store.state.userGroupList || []
+    for (const g of groups) {
+      const gid = String(g.group_id ?? g.id)
+      if (!gid) continue
+      const msgs = this.$store.state.messagesByFriend[gid] || []
+      if (msgs.length > 0) continue
+      this.$store.dispatch('fetchGroupChatHistory', { groupId: gid })
+    }
 
     this.$axios({
       url: '/api/user/show/main',

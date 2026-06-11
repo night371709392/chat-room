@@ -117,7 +117,9 @@ export default {
     timeLabel () {
       const t = this.item.timestamp
       if (t == null || t === '') return ''
-      const d = new Date(Number(t))
+      const n = Number(t)
+      if (!Number.isFinite(n) || n <= 0) return ''
+      const d = new Date(n)
       if (Number.isNaN(d.getTime())) return ''
       const pad = n => (n < 10 ? `0${n}` : `${n}`)
       return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`

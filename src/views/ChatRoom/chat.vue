@@ -6,7 +6,7 @@
       </div>
       <div class="message">
         <ContactItem
-          v-for="item in chatFriendList"
+          v-for="item in sortedChatFriendList"
           :key="(item.type || 'friend') + '-' + item.id"
           :friend-detail="item"
         ></ContactItem>
@@ -34,6 +34,25 @@ export default {
     },
     chatFriendList () {
       return this.$store.state.chatFriendList
+    },
+    /**
+     * 会话列表按「最近一条消息时间」倒序，最新的置顶。
+     * 依赖 messagesByFriend，新消息 / ack / 历史写入都会自动触发重排（响应式）。
+     * 无本地消息时回退到 last_msg_time，保证刚拉到会话列表也有合理顺序。
+     */
+    sortedChatFriendList () {
+      const msgs = this.$store.state.messagesByFriend
+      const latestTime = item => {
+        const list = msgs[String(item.id)] || []
+        if (list.length) {
+          const last = list[list.length - 1]
+          const t = Number(last && last.timestamp)
+          if (Number.isFinite(t) && t > 0) return t
+        }
+        const fallback = Number(item.last_msg_time)
+        return Number.isFinite(fallback) ? fallback : 0
+      }
+      return [...this.chatFriendList].sort((a, b) => latestTime(b) - latestTime(a))
     }
   },
   methods: {

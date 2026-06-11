@@ -13,7 +13,7 @@ const DEFAULT_UPLOAD_URL =
 
 const DEFAULT_GROUP_UPLOAD_URL =
   (typeof process !== 'undefined' && process.env && process.env.VUE_APP_GROUP_UPLOAD_URL) ||
-  '/api/group/upload'
+  '/api/group/upload/doc'
 
 function pickUrlFromObject (obj) {
   if (!obj || typeof obj !== 'object') return ''

@@ -601,7 +601,7 @@ const store = new Vuex.Store({
       touchChatFriendToTop(state, friendId)
     },
     /** 上传完成后把本地预览 URL 换成服务端地址，再发 socket */
-    updatePendingOutFileUrl (state, { friendId, tempId, msg, file_url, file_name }) {
+    updatePendingOutFileUrl (state, { friendId, tempId, msg, file_url, file_name, markSent = false }) {
       const key = String(friendId)
       const list = state.messagesByFriend[key]
       if (!list || !list.length) return
@@ -610,6 +610,9 @@ const store = new Vuex.Store({
       const cur = list[idx]
       const next = {
         ...cur,
+        // markSent 用于群文件：HTTP 上传成功后后端会自动推送 group_message，
+        // 前端不再 emit、收不到 ack，故在此直接把气泡标记为已发送。
+        pending: markSent ? false : cur.pending,
         msg: msg != null ? String(msg) : cur.msg,
         file_url: file_url != null ? String(file_url) : cur.file_url,
         file_name: file_name != null ? String(file_name) : cur.file_name

@@ -72,7 +72,6 @@
 
 <script>
 import { Icon } from 'vant'
-import axios from 'axios'
 
 export default {
   name: 'ChatNote',
@@ -220,15 +219,17 @@ export default {
       const isGroup = (this.$store.state.chatFriendList.find(x => String(x.id) === String(fid)) || {}).type === 'group' ||
         (this.$store.state.currentFriendDetail || {}).type === 'group'
 
-      if (isGroup) {
-        this.fetchGroupHistoryFromApi(fid, seq, cacheKey)
-        return
-      }
-
+      // 群聊与私聊统一走 store：先用本地消息渲染（含刚发出的文件/图片），
+      // 再用对应历史 action 刷新。normalizeChatNoteListFromStore / normalizeHistoryRow
+      // 都已正确解析 msg_type=2 的文件字段，图片 tab 才能筛到。
       const localList = this.normalizeChatNoteListFromStore(fid)
       this.chatNoteList = localList
 
-      this.$store.dispatch('fetchChatHistory', { friendId: fid }).then(() => {
+      const historyAction = isGroup
+        ? this.$store.dispatch('fetchGroupChatHistory', { groupId: fid })
+        : this.$store.dispatch('fetchChatHistory', { friendId: fid })
+
+      historyAction.then(() => {
         if (seq !== this.reqSeq) return
         const nextList = this.normalizeChatNoteListFromStore(fid)
         this.chatNoteList = nextList
@@ -243,47 +244,10 @@ export default {
       })
     },
     async fetchGroupHistoryFromApi (groupId, seq, cacheKey) {
-      try {
-        const res = await axios.get('/api/group/history', {
-          params: { group_id: groupId }
-        })
-        if (seq !== this.reqSeq) return
-        const data = res.data
-
-        let msgList = []
-        if (Array.isArray(data.msg)) {
-          msgList = data.msg
-        } else if (data.msg && typeof data.msg === 'object' && Array.isArray(data.msg.msg)) {
-          msgList = data.msg.msg
-        } else if (Array.isArray(data.data)) {
-          msgList = data.data
-        } else if (data.data && Array.isArray(data.data.msg)) {
-          msgList = data.data.msg
-        } else if (Array.isArray(data.list)) {
-          msgList = data.list
-        }
-
-        const list = msgList.map((item, idx) => ({
-          id: `gnote-${groupId}-${idx}`,
-          user_name: item.user_name || '',
-          user_picture: item.user_picture || '',
-          context: item.msg || '',
-          time_string: item.time_string || '',
-          msg_type: 1,
-          file_url: '',
-          file_name: '',
-          is_image: false,
-          is_video: false
-        }))
-        this.chatNoteList = list
-        this.cacheByFriend[cacheKey] = { ts: Date.now(), list }
-      } catch (e) {
-        console.warn('[ChatNote] 群聊历史加载失败', e)
-      } finally {
-        if (seq === this.reqSeq) {
-          this.loading = false
-        }
-      }
+      // 已废弃：群聊历史改为统一走 store 的 fetchGroupChatHistory，
+      // 经 normalizeHistoryRow 正确解析文件消息（msg_type=2 / file_url）。
+      // 保留空壳避免外部误调用报错。
+      void groupId; void seq; void cacheKey
     },
     fetchChatNoteList (friendId) {
       this.loadChatNote(friendId, { forceRefresh: true })

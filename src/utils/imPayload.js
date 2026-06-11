@@ -240,7 +240,7 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     'context', 'Context', 'msg', 'Msg', 'content', 'Content',
     'message', 'Message', 'text', 'Text'
   ])
-  const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time
+  const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time_string ?? row.timeString ?? row.time
   const ts = toTimestampMs(tsRaw)
   const msgTypeRaw =
     row.msg_type ?? row.msgType ?? row.MsgType ??
@@ -285,8 +285,8 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     msgType = 2
     if (!msgVal) msgVal = fileUrl
   }
-  const senderName = firstStr(row, ['sender_name', 'senderName', 'SenderName', 'nickname', 'nickName'])
-  const senderPicture = firstStr(row, ['sender_picture', 'senderPicture', 'SenderPicture', 'picture', 'avatar'])
+  const senderName = firstStr(row, ['sender_name', 'senderName', 'SenderName', 'user_name', 'userName', 'nickname', 'nickName'])
+  const senderPicture = firstStr(row, ['sender_picture', 'senderPicture', 'SenderPicture', 'user_picture', 'userPicture', 'picture', 'avatar'])
 
   return {
     id: `hist-${fid}-${Number.isFinite(ts) ? ts : 0}-${index}`,

@@ -186,6 +186,23 @@ export default {
       }
 
       this._revokeBlobIfAny()
+
+      if (this.isGroupChat) {
+        // 群文件：HTTP 上传成功后后端已落库并自动向群成员推送 group_message，
+        // 前端不能再 emit group_msg，否则会重复显示。这里直接把本地气泡标记为已发送，
+        // 后端推回的同一条消息会被 store 去重逻辑（相同 file_url）丢弃。
+        this.$store.commit('updatePendingOutFileUrl', {
+          friendId: fid,
+          tempId,
+          msg: serverUrl,
+          file_url: serverUrl,
+          file_name: uploadFileName,
+          markSent: true
+        })
+        this.fileUploading = false
+        return
+      }
+
       this.$store.commit('updatePendingOutFileUrl', {
         friendId: fid,
         tempId,
@@ -194,9 +211,7 @@ export default {
         file_name: uploadFileName
       })
 
-      const ok = this.isGroupChat
-        ? this.$socket.emitGroupFile(fid, serverUrl, uploadFileName)
-        : this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)
+      const ok = this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)
       if (!ok) {
         this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
         Toast.fail(this.socketConnected ? '发送失败' : '未连接，请稍后重试')

@@ -75,8 +75,7 @@ export default {
       signature: '',
       gender: 0,
       avatarUrl: '',
-      picture_id: null,
-      showAvatarPreview: false
+      picture_id: null
     }
   },
   watch: {

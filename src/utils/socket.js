@@ -253,26 +253,6 @@ class SocketService {
   }
 
   /**
-   * 群聊文件 msg_type = 2（文件需先走上传接口拿到 URL）
-   */
-  emitGroupFile (groupId, fileUrl, fileName) {
-    if (!this.socket || !this.socket.connected) return false
-    const gid = Number(groupId)
-    const url = String(fileUrl || '').trim()
-    if (!gid || !url) return false
-    const name = fileName != null ? String(fileName) : ''
-    this.socket.emit('group_msg', {
-      type: 'group',
-      group_id: gid,
-      msg_type: 2,
-      msg: url,
-      url: url,
-      file_name: name
-    })
-    return true
-  }
-
-  /**
    * 群聊已读
    */
   emitGroupRead (groupId) {

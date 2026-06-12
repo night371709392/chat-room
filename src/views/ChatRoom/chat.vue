@@ -23,15 +23,7 @@ export default {
   components: {
     ContactItem
   },
-  data () {
-    return {
-      avatarUrl: 'https://pic2.zhimg.com/v2-dcafd27e255b9df7e10c1e0992246b55_r.jpg'
-    }
-  },
   computed: {
-    activeSubStatus () {
-      return this.$store.state.chatSubStatus
-    },
     chatFriendList () {
       return this.$store.state.chatFriendList
     },
@@ -53,11 +45,6 @@ export default {
         return Number.isFinite(fallback) ? fallback : 0
       }
       return [...this.chatFriendList].sort((a, b) => latestTime(b) - latestTime(a))
-    }
-  },
-  methods: {
-    setSubStatus (status) {
-      this.$store.commit('setChatSubStatus', status)
     }
   }
 }

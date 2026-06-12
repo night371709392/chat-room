@@ -63,5 +63,3 @@ new Vue({
   router,
   store
 }).$mount('#app')
-
-window.$store = store

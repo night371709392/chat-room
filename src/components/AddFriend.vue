@@ -78,7 +78,6 @@ export default {
             email: content
           }
         }).then(res => {
-          // console.log(res)
           if (res.data.error === 'success') {
             const findData = res.data.find
             this.list = Array.isArray(findData) ? findData : (findData ? [findData] : [])
@@ -97,7 +96,6 @@ export default {
             name: content
           }
         }).then(res => {
-          // console.log(res)
           if (res.data.error === 'success') {
             const findData = res.data.find
             this.list = Array.isArray(findData) ? findData : (findData ? [findData] : [])
@@ -120,7 +118,6 @@ export default {
           send_email: email
         }
       }).then(res => {
-        // console.log(res)
         if (res.data === 'success') {
           Toast("好友申请已发送")
         }

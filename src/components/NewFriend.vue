@@ -71,7 +71,6 @@ export default {
       url: '/api/application/list',
       method: 'get'
     }).then(res => {
-      // console.log(res)
       if (res.data.msg === 'success') {
         this.getList = res.data.list
       }
@@ -81,7 +80,6 @@ export default {
       url: '/api/application/mylist',
       method: 'get'
     }).then(res => {
-      // console.log(res)
       if (res.data.msg === 'success') {
         this.postList = res.data.list
       }

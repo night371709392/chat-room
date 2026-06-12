@@ -18,10 +18,6 @@ Vue.use(Vuex)
 const MAX_PENDING_PRIVATE_WS = 50
 const pendingPrivateRawQueue = []
 
-/** userId 尚未写入时暂存群聊 WS */
-const MAX_PENDING_GROUP_WS = 50
-const pendingGroupRawQueue = []
-
 // 默认头像信息
 const default_avatar = {
   id: 1,
@@ -236,19 +232,6 @@ function normalizeGroupMessageRow (raw, prev, me) {
   }
 }
 
-function applyGroupIncomingMessage (state, raw, userId) {
-  const me = userId != null && userId !== '' ? Number(userId) : NaN
-  if (!Number.isFinite(me)) return
-
-  const result = normalizeGroupMessageRow(raw, state.messagesByFriend[String(raw.group_id ?? raw.groupId)] || [], me)
-  if (!result) return
-
-  const { gid, groupId, row } = result
-  const prev = state.messagesByFriend[gid] || []
-  Vue.set(state.messagesByFriend, gid, prev.concat(row))
-  touchChatFriendToTop(state, groupId)
-}
-
 let persistMessagesTimer = null
 const MESSAGE_MUTATIONS = new Set([
   'setFriendMessagesFromHistory',
@@ -257,7 +240,6 @@ const MESSAGE_MUTATIONS = new Set([
   'chatMessageAck',
   'chatMessageSendFailed',
   'groupMessageAck',
-  'groupIncomingMessage',
   'batchGroupIncomingMessages',
   'chatIncomingPrivate',
   'clearMessagesForFriend',
@@ -516,14 +498,12 @@ const store = new Vuex.Store({
       if (id === null || id === undefined || id === '') {
         state.userId = null
         pendingPrivateRawQueue.length = 0
-        pendingGroupRawQueue.length = 0
         return
       }
       const n = Number(id)
       state.userId = Number.isFinite(n) ? n : null
       if (!Number.isFinite(state.userId)) {
         pendingPrivateRawQueue.length = 0
-        pendingGroupRawQueue.length = 0
         return
       }
       const uid = state.userId
@@ -533,37 +513,12 @@ const store = new Vuex.Store({
           applyChatIncomingPrivate(state, raw, uid)
         }
       }
-      if (pendingGroupRawQueue.length) {
-        const batch = pendingGroupRawQueue.splice(0, pendingGroupRawQueue.length)
-        const buffer = {}
-        for (const raw of batch) {
-          const gid = String(raw.group_id ?? raw.groupId)
-          if (!buffer[gid]) buffer[gid] = []
-          buffer[gid].push(raw)
-        }
-        for (const [gid, raws] of Object.entries(buffer)) {
-          const prev = state.messagesByFriend[gid] || []
-          const collector = [...prev]
-          let touched = false
-          for (const raw of raws) {
-            const result = normalizeGroupMessageRow(raw, collector, uid)
-            if (!result) continue
-            collector.push(result.row)
-            touched = true
-          }
-          if (touched) {
-            Vue.set(state.messagesByFriend, gid, collector)
-            touchChatFriendToTop(state, gid)
-          }
-        }
-      }
     },
     setSocketConnected (state, v) {
       state.socketConnected = !!v
     },
     clearChatSession (state) {
       pendingPrivateRawQueue.length = 0
-      pendingGroupRawQueue.length = 0
       state.userId = null
       state.messagesByFriend = {}
       state.socketConnected = false
@@ -676,16 +631,6 @@ const store = new Vuex.Store({
       nextList[idx] = next
       Vue.set(state.messagesByFriend, key, nextList)
     },
-    groupIncomingMessage (state, { raw, userId }) {
-      const me = userId != null && userId !== '' ? Number(userId) : NaN
-      if (!Number.isFinite(me)) {
-        if (pendingGroupRawQueue.length < MAX_PENDING_GROUP_WS) {
-          pendingGroupRawQueue.push(raw)
-        }
-        return
-      }
-      applyGroupIncomingMessage(state, raw, userId)
-    },
     chatIncomingPrivate (state, { raw, userId }) {
       const me = userId != null && userId !== '' ? Number(userId) : NaN
       if (!Number.isFinite(me)) {
@@ -720,14 +665,9 @@ const store = new Vuex.Store({
         touchChatFriendToTop(state, gid)
       }
     },
-    groupReplayMessage () {
-    },
     finishGroupReplay (state, { groupId }) {
       touchChatFriendToTop(state, groupId)
     },
-    /**
-     * 合并服务端历史与本地未同步气泡，避免拉历史覆盖掉已收到的 WS 消息
-     */
     /** 清空与某好友的本地消息列表（仅前端；未调用服务端删历史） */
     clearMessagesForFriend (state, friendId) {
       const key = friendId != null ? String(friendId) : ''

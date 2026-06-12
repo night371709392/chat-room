@@ -243,15 +243,6 @@ export default {
         }
       })
     },
-    async fetchGroupHistoryFromApi (groupId, seq, cacheKey) {
-      // 已废弃：群聊历史改为统一走 store 的 fetchGroupChatHistory，
-      // 经 normalizeHistoryRow 正确解析文件消息（msg_type=2 / file_url）。
-      // 保留空壳避免外部误调用报错。
-      void groupId; void seq; void cacheKey
-    },
-    fetchChatNoteList (friendId) {
-      this.loadChatNote(friendId, { forceRefresh: true })
-    },
     setTab (tab) {
       this.activeTab = tab
     },

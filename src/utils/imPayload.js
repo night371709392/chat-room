@@ -8,7 +8,35 @@ function toNum (v) {
   return Number.isFinite(n) ? n : NaN
 }
 
-function toTimestampMs (v) {
+export function toMsgIdStr (v) {
+  if (v === null || v === undefined || v === '') return ''
+  if (typeof v === 'string') {
+    const s = v.trim()
+    return s || ''
+  }
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return ''
+    if (!Number.isSafeInteger(v)) {
+      console.warn('[chat] unsafe numeric msg_id received; exact recall requires backend to send string msg_id', v)
+    }
+    return String(v)
+  }
+  if (typeof v === 'bigint') return v.toString()
+  return String(v).trim()
+}
+
+export function firstMsgIdStr (obj, keys) {
+  if (!obj || typeof obj !== 'object') return ''
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      const s = toMsgIdStr(obj[k])
+      if (s) return s
+    }
+  }
+  return ''
+}
+
+export function toTimestampMs (v) {
   if (v === null || v === undefined || v === '') return NaN
   if (typeof v === 'number') {
     if (!Number.isFinite(v)) return NaN
@@ -103,9 +131,11 @@ export function normalizeIncomingPrivate (raw) {
     o._client_received_at ??
     o.time
   const timestamp = toTimestampMs(tsRaw)
+  const msg_id = firstMsgIdStr(o, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'id', 'Id', 'ID', 'message_id', 'messageId'])
 
   return {
     type: o.type || o.Type,
+    msg_id: msg_id || null,
     sender_id,
     receiver_id,
     msg_type: Number.isFinite(msg_type) && msg_type > 0 ? msg_type : 1,
@@ -222,13 +252,15 @@ function pickUrlDeepFallback (row) {
  */
 export function bubbleDedupeKey (m) {
   if (!m || typeof m !== 'object') return ''
-  const ts = Number(m.timestamp) || 0
+  const msgId = toMsgIdStr(m.msg_id)
+  if (msgId) return `id|${msgId}`
   const out = m.outgoing ? 1 : 0
   const mt = Number(m.msg_type)
   if (mt === 2 || mt === 3) {
     const u = String(m.file_url || m.msg || '').trim()
-    return `${ts}|${out}|f|${u}`
+    return u ? `${out}|f|${u}` : ''
   }
+  const ts = Number(m.timestamp) || 0
   return `${ts}|${out}|1|${String(m.msg || '').trim().slice(0, 200)}`
 }
 
@@ -240,7 +272,7 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     'context', 'Context', 'msg', 'Msg', 'content', 'Content',
     'message', 'Message', 'text', 'Text'
   ])
-  const tsRaw = row.create_time ?? row.createTime ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time_string ?? row.timeString ?? row.time
+  const tsRaw = row.create_time ?? row.createTime ?? row.created_at ?? row.createdAt ?? row.timestamp ?? row.Timestamp ?? row.msg_time ?? row.msgTime ?? row.time_string ?? row.timeString ?? row.send_time ?? row.sendTime ?? row.sent_at ?? row.sentAt ?? row.updated_at ?? row.updatedAt ?? row.time
   const ts = toTimestampMs(tsRaw)
   const msgTypeRaw =
     row.msg_type ?? row.msgType ?? row.MsgType ??
@@ -287,9 +319,11 @@ export function normalizeHistoryRow (row, me, index, friendId) {
   }
   const senderName = firstStr(row, ['sender_name', 'senderName', 'SenderName', 'user_name', 'userName', 'nickname', 'nickName'])
   const senderPicture = firstStr(row, ['sender_picture', 'senderPicture', 'SenderPicture', 'user_picture', 'userPicture', 'picture', 'avatar'])
+  const msgId = firstMsgIdStr(row, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'id', 'Id', 'ID', 'message_id', 'messageId'])
 
   return {
-    id: `hist-${fid}-${Number.isFinite(ts) ? ts : 0}-${index}`,
+    id: `hist-${fid}-${Number.isFinite(ts) ? ts : 'unknown'}-${index}`,
+    msg_id: msgId || null,
     outgoing,
     pending: false,
     failed: false,
@@ -297,7 +331,7 @@ export function normalizeHistoryRow (row, me, index, friendId) {
     msg: msgVal,
     file_url: fileUrl,
     file_name: fileNameHint,
-    timestamp: Number.isFinite(ts) ? ts : 0,
+    timestamp: Number.isFinite(ts) ? ts : null,
     sender_id: senderId,
     sender_name: senderName,
     sender_picture: senderPicture

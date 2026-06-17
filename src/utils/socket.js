@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client'
 import store from '@/store'
 import { hydrateUserIdFromToken } from '@/utils/jwtUserId'
+import { firstMsgIdStr } from '@/utils/imPayload'
 
 /**
  * Socket.IO v4 私聊 & 群聊协议
@@ -53,7 +54,8 @@ class SocketService {
           store.commit('chatMessageAck', {
             receiver_id: data.receiver_id ?? data.receiverId,
             timestamp: data.timestamp != null ? Number(data.timestamp) : (data.Timestamp != null ? Number(data.Timestamp) : null),
-            msg_type: data.msg_type ?? data.msgType
+            msg_type: data.msg_type ?? data.msgType,
+            msg_id: firstMsgIdStr(data, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'id', 'Id', 'ID', 'message_id', 'messageId']) || null
           })
           break
         case 'private':

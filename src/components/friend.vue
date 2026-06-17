@@ -102,6 +102,9 @@ export default {
         this.showFriendSet = false
         if (id === null || id === undefined || id === '') return
         const key = String(id)
+        if (this.isGroupChat) {
+          this.$store.dispatch('fetchGroupMembers', { groupId: id })
+        }
         const msgs = this.$store.state.messagesByFriend[key] || []
         if (msgs.length > 0) {
           this.$nextTick(() => this.scrollToBottom())

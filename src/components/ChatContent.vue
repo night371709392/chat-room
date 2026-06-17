@@ -159,6 +159,7 @@ export default {
       this.fileUploading = true
       let serverUrl = ''
       let uploadFileName = fileName
+      let uploadMsgId = null
       try {
         const uploadOpts = this.isGroupChat
           ? { groupId: fid }
@@ -166,6 +167,7 @@ export default {
         const uploaded = await uploadChatAttachment(file, uploadOpts)
         serverUrl = uploaded.url
         uploadFileName = uploaded.fileName || fileName
+        uploadMsgId = uploaded.msgId || null
       } catch (err) {
         this._revokeBlobIfAny()
         this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
@@ -197,6 +199,7 @@ export default {
           msg: serverUrl,
           file_url: serverUrl,
           file_name: uploadFileName,
+          msg_id: uploadMsgId,
           markSent: true
         })
         this.fileUploading = false
@@ -208,7 +211,8 @@ export default {
         tempId,
         msg: serverUrl,
         file_url: serverUrl,
-        file_name: uploadFileName
+        file_name: uploadFileName,
+        msg_id: uploadMsgId
       })
 
       const ok = this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)

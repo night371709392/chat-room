@@ -7,7 +7,10 @@ import {
   normalizeHistoryRow,
   isHistorySuccess,
   extractHistoryList,
-  bubbleDedupeKey
+  bubbleDedupeKey,
+  toMsgIdStr,
+  firstMsgIdStr,
+  toTimestampMs
 } from "@/utils/imPayload"
 import { extractFriendMainRow } from "@/utils/contactFriendMain"
 import { hydrateUserIdFromToken } from "@/utils/jwtUserId"
@@ -17,6 +20,45 @@ Vue.use(Vuex)
 /** userId 尚未写入时暂存私聊 WS，setUserId 后按序回放 */
 const MAX_PENDING_PRIVATE_WS = 50
 const pendingPrivateRawQueue = []
+
+function normalizeMsgIdForStore (v) {
+  const s = toMsgIdStr(v)
+  return s || null
+}
+
+function messageTimestamp (m) {
+  const t = Number(m && m.timestamp)
+  return Number.isFinite(t) && t > 0 ? t : null
+}
+
+function hasValidMessageTimestamp (m) {
+  return messageTimestamp(m) != null
+}
+
+function compareMessagesByTime (a, b) {
+  const at = messageTimestamp(a)
+  const bt = messageTimestamp(b)
+  if (at != null && bt != null) return at - bt
+  if (at != null) return -1
+  if (bt != null) return 1
+  return 0
+}
+
+function mergeHistoryWithExistingBubble (server, existing) {
+  if (!existing) return server
+  return {
+    ...existing,
+    ...server,
+    id: server.id || existing.id,
+    msg_id: server.msg_id || existing.msg_id || null,
+    msg: server.msg || existing.msg || '',
+    file_url: server.file_url || existing.file_url || '',
+    file_name: server.file_name || existing.file_name || '',
+    timestamp: hasValidMessageTimestamp(server) ? server.timestamp : existing.timestamp,
+    pending: false,
+    failed: false
+  }
+}
 
 // 默认头像信息
 const default_avatar = {
@@ -134,17 +176,52 @@ function applyChatIncomingPrivate (state, raw, userId) {
     Number.isFinite(norm.sender_id) &&
     norm.sender_id === me
   const prev = state.messagesByFriend[friendKey] || []
-  // 文件消息：部分实现会向发送方再推一条 private，与本地已展示的发送气泡重复则忽略
+  // 文件消息：部分实现会向发送方再推一条 private（带真实 msg_id），与本地已展示的发送气泡重复。
+  // 不再直接丢弃，而是把 echo 的 msg_id 回填到已有气泡上，否则文件消息拿不到 msg_id 无法撤回。
   if (outgoing && (Number(norm.msg_type) === 2 || Number(norm.msg_type) === 3)) {
     const url = String(norm.file_url || norm.msg || '').trim()
     if (url) {
-      const dup = prev.some(m =>
+      const dupIdx = prev.findIndex(m =>
         m.outgoing &&
         Number(m.msg_type) === 2 &&
         !m.failed &&
         (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
       )
-      if (dup) return
+      if (dupIdx !== -1) {
+        const cur = prev[dupIdx]
+        // echo 是服务端确认：回填 msg_id，并兜底清掉 pending（文件若无单独 ack 不会卡在“发送中”）
+        if ((norm.msg_id != null && cur.msg_id == null) || cur.pending) {
+          const nextList = prev.slice()
+          nextList[dupIdx] = {
+            ...cur,
+            msg_id: cur.msg_id == null && norm.msg_id != null ? normalizeMsgIdForStore(norm.msg_id) : cur.msg_id,
+            pending: false
+          }
+          Vue.set(state.messagesByFriend, friendKey, nextList)
+        }
+        return
+      }
+    }
+  }
+  // 文本消息：若服务端把自己发的文本 echo 回来（带 msg_id），同样命中已有发送气泡并回填，
+  // 不新建重复气泡。只在已有气泡缺 msg_id 时回填，避免把两条相同文本误并成一条。
+  if (outgoing && Number(norm.msg_type) === 1) {
+    const text = String(norm.msg || '').trim()
+    if (text && norm.msg_id != null) {
+      const dupIdx = prev.findIndex(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 1 &&
+        !m.failed &&
+        m.msg_id == null &&
+        String(m.msg || '').trim() === text
+      )
+      if (dupIdx !== -1) {
+        const cur = prev[dupIdx]
+        const nextList = prev.slice()
+        nextList[dupIdx] = { ...cur, msg_id: normalizeMsgIdForStore(norm.msg_id), pending: false }
+        Vue.set(state.messagesByFriend, friendKey, nextList)
+        return
+      }
     }
   }
   const ts = Number.isFinite(norm.timestamp) ? norm.timestamp : null
@@ -152,6 +229,7 @@ function applyChatIncomingPrivate (state, raw, userId) {
   const id = `in-${idTs}-${Math.random().toString(36).slice(2, 9)}`
   const row = {
     id,
+    msg_id: normalizeMsgIdForStore(norm.msg_id),
     outgoing,
     pending: false,
     failed: false,
@@ -177,47 +255,68 @@ function normalizeGroupMessageRow (raw, prev, me) {
     senderId === me
 
   const existing = prev || []
+  // 自己发的群消息：服务端会把同一条 echo 回来（带真实 msg_id）。本地已有发送气泡时
+  // 不再追加新气泡，而是返回该气泡引用，由调用方把 echo 的 msg_id 回填上去，以便撤回。
+  const echoMsgId = firstMsgIdStr(raw, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'id', 'Id', 'ID', 'message_id', 'messageId'])
   if (outgoing && Number(raw.msg_type) === 1) {
     const text = String(raw.msg || '').trim()
     if (text) {
-      const dup = existing.some(m =>
+      // 优先匹配「还没拿到 msg_id」的发送气泡，避免连发两条相同文本时误并成一条
+      const dup = existing.find(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 1 &&
+        !m.failed &&
+        m.msg_id == null &&
+        String(m.msg || '').trim() === text
+      ) || existing.find(m =>
         m.outgoing &&
         Number(m.msg_type) === 1 &&
         !m.failed &&
         String(m.msg || '').trim() === text
       )
-      if (dup) return null
+      if (dup) return { dupRow: dup, msgId: echoMsgId != null ? echoMsgId : null }
     }
   }
   if (outgoing && (Number(raw.msg_type) === 2 || Number(raw.msg_type) === 3)) {
     const url = String(raw.url || raw.msg || '').trim()
     if (url) {
-      const dup = existing.some(m =>
+      const dup = existing.find(m =>
+        m.outgoing &&
+        Number(m.msg_type) === 2 &&
+        !m.failed &&
+        m.msg_id == null &&
+        (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
+      ) || existing.find(m =>
         m.outgoing &&
         Number(m.msg_type) === 2 &&
         !m.failed &&
         (String(m.file_url || '').trim() === url || String(m.msg || '').trim() === url)
       )
-      if (dup) return null
+      if (dup) return { dupRow: dup, msgId: echoMsgId != null ? echoMsgId : null }
     }
   }
 
-  const tsRaw = raw.time_string || raw.timestamp || raw.create_time || raw.msg_time
-  let ts = null
-  if (tsRaw != null) {
-    const parsed = new Date(tsRaw).getTime()
-    if (!Number.isNaN(parsed)) ts = parsed
-  }
-  if (ts == null && raw._client_received_at != null) {
-    ts = Number(raw._client_received_at)
-  }
+  const tsRaw =
+    raw.time_string ??
+    raw.timeString ??
+    raw.timestamp ??
+    raw.Timestamp ??
+    raw.create_time ??
+    raw.createTime ??
+    raw.msg_time ??
+    raw.msgTime ??
+    raw.time ??
+    raw._client_received_at
+  const parsed = toTimestampMs(tsRaw)
+  const ts = Number.isFinite(parsed) ? parsed : null
   const idTs = ts != null ? ts : Date.now()
-  const id = raw.msg_id != null ? String(raw.msg_id) : `gin-${idTs}-${Math.random().toString(36).slice(2, 9)}`
+  const id = echoMsgId || `gin-${idTs}-${Math.random().toString(36).slice(2, 9)}`
   return {
     gid,
     groupId,
     row: {
       id,
+      msg_id: normalizeMsgIdForStore(echoMsgId),
       outgoing,
       pending: false,
       failed: false,
@@ -315,6 +414,7 @@ const store = new Vuex.Store({
 
     userId: null, // 当前登录用户 id（用于区分收发、对齐历史记录）
     messagesByFriend: {}, // { [friendId]: ChatBubble[] }
+    groupMembersByGroup: {}, // { [groupId]: GroupMember[] } 群成员列表缓存，进入会话时预拉，避免设置面板按钮闪烁
     socketConnected: false,
     pendingHistoryLoads: {}, // { [key]: true } 正在拉取历史的聊天，防止重复 dispatch
 
@@ -367,6 +467,22 @@ const store = new Vuex.Store({
     },
     setUserGroupList (state, list) {
       state.userGroupList = Array.isArray(list) ? list : []
+    },
+    setGroupMembers (state, { groupId, members }) {
+      Vue.set(state.groupMembersByGroup, String(groupId), Array.isArray(members) ? members : [])
+    },
+    addGroupMembers (state, { groupId, members }) {
+      const key = String(groupId)
+      const cur = state.groupMembersByGroup[key] || []
+      const exist = new Set(cur.map(m => String(m.person_id)))
+      const additions = (members || []).filter(m => !exist.has(String(m.person_id)))
+      Vue.set(state.groupMembersByGroup, key, cur.concat(additions))
+    },
+    removeGroupMembers (state, { groupId, personIds }) {
+      const key = String(groupId)
+      const cur = state.groupMembersByGroup[key] || []
+      const removeSet = new Set((personIds || []).map(id => String(id)))
+      Vue.set(state.groupMembersByGroup, key, cur.filter(m => !removeSet.has(String(m.person_id))))
     },
     setCurrentFriendDetail (state, friendDetail) {
       state.currentFriendDetail = friendDetail
@@ -556,7 +672,7 @@ const store = new Vuex.Store({
       touchChatFriendToTop(state, friendId)
     },
     /** 上传完成后把本地预览 URL 换成服务端地址，再发 socket */
-    updatePendingOutFileUrl (state, { friendId, tempId, msg, file_url, file_name, markSent = false }) {
+    updatePendingOutFileUrl (state, { friendId, tempId, msg, file_url, file_name, msg_id, markSent = false }) {
       const key = String(friendId)
       const list = state.messagesByFriend[key]
       if (!list || !list.length) return
@@ -570,13 +686,14 @@ const store = new Vuex.Store({
         pending: markSent ? false : cur.pending,
         msg: msg != null ? String(msg) : cur.msg,
         file_url: file_url != null ? String(file_url) : cur.file_url,
-        file_name: file_name != null ? String(file_name) : cur.file_name
+        file_name: file_name != null ? String(file_name) : cur.file_name,
+        msg_id: msg_id != null ? normalizeMsgIdForStore(msg_id) : cur.msg_id
       }
       const nextList = list.slice()
       nextList[idx] = next
       Vue.set(state.messagesByFriend, key, nextList)
     },
-    chatMessageAck (state, { receiver_id, timestamp, msg_type }) {
+    chatMessageAck (state, { receiver_id, timestamp, msg_type, msg_id }) {
       if (receiver_id === null || receiver_id === undefined || receiver_id === '') return
       const key = String(receiver_id)
       const list = state.messagesByFriend[key]
@@ -592,6 +709,8 @@ const store = new Vuex.Store({
       const next = {
         ...cur,
         pending: false,
+        // ack 若带回真实 msg_id，则回填，便于刚发出的消息立即可撤回
+        msg_id: msg_id != null ? normalizeMsgIdForStore(msg_id) : cur.msg_id,
         // 若发送时已记录本地时间，ack 不覆盖；仅在缺失时补写
         timestamp: cur.timestamp != null ? cur.timestamp : (timestamp != null ? Number(timestamp) : cur.timestamp)
       }
@@ -653,6 +772,17 @@ const store = new Vuex.Store({
         for (const raw of raws) {
           const result = normalizeGroupMessageRow(raw, collector, me)
           if (!result) continue
+          // echo 命中已有发送气泡：把真实 msg_id 回填上去，不追加新气泡
+          if (result.dupRow) {
+            if (result.msgId != null && result.dupRow.msg_id == null) {
+              const idx = collector.indexOf(result.dupRow)
+              if (idx !== -1) {
+                collector[idx] = { ...result.dupRow, msg_id: normalizeMsgIdForStore(result.msgId) }
+                touched = true
+              }
+            }
+            continue
+          }
           collector.push(result.row)
           touched = true
         }
@@ -674,22 +804,43 @@ const store = new Vuex.Store({
       if (!key) return
       Vue.set(state.messagesByFriend, key, [])
     },
+    /** 撤回成功后从本地会话移除该消息气泡 */
+    removeMessageFromConversation (state, { friendId, rowId, msgId }) {
+      const key = String(friendId)
+      const list = state.messagesByFriend[key]
+      if (!list || !list.length) return
+      const nextList = list.filter(m => {
+        if (rowId != null && String(m.id) === String(rowId)) return false
+        if (msgId != null && m.msg_id != null && String(m.msg_id) === String(msgId)) return false
+        return true
+      })
+      if (nextList.length === list.length) return
+      Vue.set(state.messagesByFriend, key, nextList)
+    },
     setFriendMessagesFromHistory (state, { friendId, messages }) {
       const key = String(friendId)
-      const serverSorted = (messages || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
       const existing = state.messagesByFriend[key] || []
-      const dedupeKey = m => bubbleDedupeKey(m)
-      const serverKeys = new Set(serverSorted.map(dedupeKey))
+      const existingByKey = new Map()
+      for (const row of existing) {
+        const k = bubbleDedupeKey(row)
+        if (k && !existingByKey.has(k)) existingByKey.set(k, row)
+      }
+      const serverSorted = (messages || [])
+        .slice()
+        .sort(compareMessagesByTime)
+        .map(row => mergeHistoryWithExistingBubble(row, existingByKey.get(bubbleDedupeKey(row))))
+      const serverKeys = new Set(serverSorted.map(bubbleDedupeKey).filter(Boolean))
       const extras = existing.filter(m => {
         if (m.pending) return true
         if (m.failed) return true
         const id = m.id != null ? String(m.id) : ''
         if (id.startsWith('in-') || id.startsWith('p-') || id.startsWith('hist-') || id.startsWith('gin-') || /^\d+$/.test(id)) {
-          return !serverKeys.has(dedupeKey(m))
+          const k = bubbleDedupeKey(m)
+          return !k || !serverKeys.has(k)
         }
         return false
       })
-      const merged = serverSorted.concat(extras).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      const merged = serverSorted.concat(extras).sort(compareMessagesByTime)
       Vue.set(state.messagesByFriend, key, merged)
     },
     sortChatFriendList (state) {
@@ -808,6 +959,20 @@ const store = new Vuex.Store({
         console.warn('[fetchGroupChatHistory]', e)
       } finally {
         Vue.delete(state.pendingHistoryLoads, key)
+      }
+    },
+    async fetchGroupMembers ({ commit }, { groupId }) {
+      const gid = groupId != null ? Number(groupId) : NaN
+      if (!Number.isFinite(gid)) return
+      try {
+        const res = await axios.post('/api/group/show/all', { group_id: gid })
+        const data = res.data
+        const ok = data && (data.error === 'success' || data.err === 'success' || data.message === 'success')
+        if (!ok) return
+        const members = Array.isArray(data.group_person) ? data.group_person : []
+        commit('setGroupMembers', { groupId: gid, members })
+      } catch (e) {
+        console.warn('[fetchGroupMembers]', e)
       }
     }
   }

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { firstMsgIdStr } from '@/utils/imPayload'
 
 /**
  * POST /chat/upload（经 devServer 代理为 /api/chat/upload）
@@ -65,10 +66,18 @@ function pickFileNameFromObject (obj, fallback) {
   return fallback
 }
 
+function pickMsgIdFromObject (obj) {
+  if (!obj || typeof obj !== 'object') return null
+  const id = firstMsgIdStr(obj, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'message_id', 'messageId', 'id', 'Id', 'ID'])
+  if (id) return id
+  if (obj.data && typeof obj.data === 'object') return pickMsgIdFromObject(obj.data)
+  return null
+}
+
 /**
  * @param {File} file
  * @param {{ receiverId?: number|string, groupId?: number|string, uploadUrl?: string, fieldName?: string }} options
- * @returns {Promise<{ url: string, fileName: string }>}
+ * @returns {Promise<{ url: string, fileName: string, msgId: string|null }>}
  */
 export async function uploadChatAttachment (file, options = {}) {
   if (!file || !(file instanceof File)) {
@@ -117,5 +126,6 @@ export async function uploadChatAttachment (file, options = {}) {
   }
 
   const fileName = pickFileNameFromObject(data, file.name || '文件')
-  return { url, fileName }
+  const msgId = pickMsgIdFromObject(data)
+  return { url, fileName, msgId }
 }

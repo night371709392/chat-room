@@ -11,7 +11,7 @@
       </div>
       <div class="bubble-wrap">
         <div v-if="showSenderName" class="sender-name">{{ senderName }}</div>
-        <div v-if="isFileBubble" class="message-bubble file-bubble">
+        <div v-if="isFileBubble" class="message-bubble file-bubble" @contextmenu.prevent="onContextMenu">
           <template v-if="fileHref">
             <a
               v-if="isImageFile"
@@ -31,7 +31,7 @@
           </template>
           <span v-else class="file-name">{{ item.file_name || '文件' }}</span>
         </div>
-        <div v-else class="message-bubble">
+        <div v-else class="message-bubble" @contextmenu.prevent="onContextMenu">
           {{ item.msg }}
         </div>
         <div v-if="item.pending" class="meta sending">发送中…</div>
@@ -39,6 +39,23 @@
         <div v-else-if="timeLabel" class="meta subtle">{{ timeLabel }}</div>
       </div>
     </div>
+
+    <ul
+      v-if="menuVisible"
+      ref="ctxMenu"
+      class="ctx-menu"
+      :style="{ left: menuPos.x + 'px', top: menuPos.y + 'px' }"
+    >
+      <li class="ctx-menu-item" @click="onMenuAction('copy')">
+        <i class="ri ri-file-copy-line"></i><span>复制</span>
+      </li>
+      <li class="ctx-menu-item" @click="onMenuAction('delete')">
+        <i class="ri ri-delete-bin-line"></i><span>删除</span>
+      </li>
+      <li v-if="item.outgoing" class="ctx-menu-item" @click="onMenuAction('recall')">
+        <i class="ri ri-arrow-go-back-line"></i><span>撤回</span>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -49,6 +66,12 @@ export default {
     item: {
       type: Object,
       required: true
+    }
+  },
+  data () {
+    return {
+      menuVisible: false,
+      menuPos: { x: 0, y: 0 }
     }
   },
   computed: {
@@ -125,7 +148,123 @@ export default {
       return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
     }
   },
+  beforeDestroy () {
+    this.unbindCloseListeners()
+  },
   methods: {
+    onContextMenu (e) {
+      this.menuVisible = true
+      // 先用点击坐标，待菜单渲染后再做边界检测修正
+      this.menuPos = { x: e.clientX, y: e.clientY }
+      this.$nextTick(() => this.clampMenuToViewport())
+      this.bindCloseListeners()
+    },
+    clampMenuToViewport () {
+      const el = this.$refs.ctxMenu
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const margin = 8
+      let { x, y } = this.menuPos
+      const maxX = window.innerWidth - rect.width - margin
+      const maxY = window.innerHeight - rect.height - margin
+      if (x > maxX) x = Math.max(margin, maxX)
+      if (y > maxY) y = Math.max(margin, maxY)
+      if (x < margin) x = margin
+      if (y < margin) y = margin
+      this.menuPos = { x, y }
+    },
+    closeMenu () {
+      if (!this.menuVisible) return
+      this.menuVisible = false
+      this.unbindCloseListeners()
+    },
+    bindCloseListeners () {
+      // 延迟到下一帧绑定，避免本次右键/点击立即触发关闭
+      this._onDocClick = () => this.closeMenu()
+      this._onScroll = () => this.closeMenu()
+      this._onKeydown = (e) => { if (e.key === 'Escape') this.closeMenu() }
+      window.setTimeout(() => {
+        document.addEventListener('click', this._onDocClick)
+        document.addEventListener('contextmenu', this._onDocClick)
+        window.addEventListener('scroll', this._onScroll, true)
+        window.addEventListener('resize', this._onScroll)
+        document.addEventListener('keydown', this._onKeydown)
+      }, 0)
+    },
+    unbindCloseListeners () {
+      document.removeEventListener('click', this._onDocClick)
+      document.removeEventListener('contextmenu', this._onDocClick)
+      window.removeEventListener('scroll', this._onScroll, true)
+      window.removeEventListener('resize', this._onScroll)
+      document.removeEventListener('keydown', this._onKeydown)
+    },
+    onMenuAction (action) {
+      this.closeMenu()
+      if (action === 'recall') {
+        this.recallMessage()
+        return
+      }
+      // 复制 / 删除 逻辑后续实现
+      void action
+    },
+    recallMessage () {
+      // 只能撤回自己发送的消息，后端同样会校验 sender_id，前端先拦一次
+      if (!this.item.outgoing) {
+        this.$toast('只能撤回自己发送的消息')
+        return
+      }
+      const msgId = this.item.msg_id != null ? String(this.item.msg_id).trim() : ''
+      if (!msgId) {
+        this.$toast('该消息暂不支持撤回')
+        return
+      }
+      // 只能撤回 2 分钟以内的消息
+      const ts = Number(this.item.timestamp)
+      const TWO_MIN = 2 * 60 * 1000
+      if (!Number.isFinite(ts) || ts <= 0 || Date.now() - ts > TWO_MIN) {
+        this.$toast('只能撤回 2 分钟以内的消息')
+        return
+      }
+      const convId = this.$store.state.currentChatFriendId
+      if (convId == null || convId === '') return
+
+      const isGroup = this.isGroupChat
+      const isFile = Number(this.item.msg_type) === 2 || Number(this.item.msg_type) === 3
+      let url
+      let data
+      if (isGroup) {
+        url = isFile ? '/api/group/recall/doc' : '/api/group/recall/msg'
+        data = { group_id: Number(convId), msg_id: msgId }
+      } else {
+        url = isFile ? '/api/chat/recall/doc' : '/api/chat/recall/msg'
+        data = { friend_id: Number(convId), msg_id: msgId }
+      }
+
+      this.$axios({ url, method: 'post', data }).then(res => {
+        const d = res && res.data
+        const ok =
+          d === 'success' ||
+          (d && typeof d === 'object' && (
+            d.error === 'success' || d.err === 'success' ||
+            d.message === 'success' || d.msg === 'success' ||
+            d.code === 0 || d.code === '0'
+          ))
+        if (ok) {
+          this.$store.commit('removeMessageFromConversation', {
+            friendId: convId,
+            rowId: this.item.id,
+            msgId
+          })
+          this.$toast.success ? this.$toast.success('已撤回') : this.$toast('已撤回')
+        } else {
+          const m = (d && (d.message || d.msg || d.error || d.err)) || '撤回失败'
+          this.$toast.fail ? this.$toast.fail(String(m)) : this.$toast(String(m))
+        }
+      }).catch(err => {
+        console.warn('[recallMessage]', err)
+        this.$toast.fail ? this.$toast.fail('网络异常，请稍后重试') : this.$toast('网络异常，请稍后重试')
+      })
+    },
     onAvatarClick () {
       if (this.item.outgoing) return
       if (this.isGroupChat) return
@@ -256,5 +395,35 @@ export default {
   color: #8b90a0;
   margin-bottom: 2px;
   padding-left: 2px;
+}
+.ctx-menu {
+  position: fixed;
+  z-index: 3000;
+  min-width: 120px;
+  padding: 4px;
+  margin: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #303133;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.ctx-menu-item:hover {
+  background: #f5f7fa;
+}
+.ctx-menu-item .ri {
+  font-size: 16px;
+  color: #606266;
 }
 </style>

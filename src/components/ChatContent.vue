@@ -166,8 +166,9 @@ export default {
           : { receiverId: fid }
         const uploaded = await uploadChatAttachment(file, uploadOpts)
         serverUrl = uploaded.url
-        uploadFileName = uploaded.fileName || fileName
-        uploadMsgId = uploaded.msgId || null
+        uploadFileName = uploaded.fileName || uploaded.file_name || fileName
+        uploadMsgId = uploaded.msg_id || uploaded.msgId || uploaded.id || null
+        if (uploadMsgId != null) uploadMsgId = String(uploadMsgId)
       } catch (err) {
         this._revokeBlobIfAny()
         this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
@@ -206,20 +207,17 @@ export default {
         return
       }
 
+      // 私聊文件：与群文件一致，HTTP 上传成功后后端已落库并负责推送，
+      // 前端不再额外 emitPrivateFile，避免重复气泡。
       this.$store.commit('updatePendingOutFileUrl', {
         friendId: fid,
         tempId,
         msg: serverUrl,
         file_url: serverUrl,
         file_name: uploadFileName,
-        msg_id: uploadMsgId
+        msg_id: uploadMsgId,
+        markSent: true
       })
-
-      const ok = this.$socket.emitPrivateFile(fid, serverUrl, uploadFileName)
-      if (!ok) {
-        this.$store.commit('chatMessageSendFailed', { friendId: fid, tempId })
-        Toast.fail(this.socketConnected ? '发送失败' : '未连接，请稍后重试')
-      }
       this.fileUploading = false
     },
     openChatNote () {

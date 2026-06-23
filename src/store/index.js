@@ -177,7 +177,7 @@ function applyChatIncomingPrivate (state, raw, userId) {
     norm.sender_id === me
   const prev = state.messagesByFriend[friendKey] || []
   // 文件消息：部分实现会向发送方再推一条 private（带真实 msg_id），与本地已展示的发送气泡重复。
-  // 不再直接丢弃，而是把 echo 的 msg_id 回填到已有气泡上，否则文件消息拿不到 msg_id 无法撤回。
+  // 不再直接丢弃，而是把 echo 的 msg_id 回填到已有气泡上。
   if (outgoing && (Number(norm.msg_type) === 2 || Number(norm.msg_type) === 3)) {
     const url = String(norm.file_url || norm.msg || '').trim()
     if (url) {
@@ -239,7 +239,12 @@ function applyChatIncomingPrivate (state, raw, userId) {
     file_name: norm.file_name || '',
     timestamp: ts
   }
-  Vue.set(state.messagesByFriend, friendKey, prev.concat(row))
+  // 去重：socket 重连补推可能与历史消息重复，避免同一气泡被 append 两次
+  const dedupeKey = bubbleDedupeKey(row)
+  if (dedupeKey && prev.some(m => bubbleDedupeKey(m) === dedupeKey)) return
+
+  // 追加后按时间排序，防止补推消息时间乱序导致"文件在上、文本在最后"
+  Vue.set(state.messagesByFriend, friendKey, [...prev, row].sort(compareMessagesByTime))
   touchChatFriendToTop(state, peerId)
 }
 
@@ -256,7 +261,7 @@ function normalizeGroupMessageRow (raw, prev, me) {
 
   const existing = prev || []
   // 自己发的群消息：服务端会把同一条 echo 回来（带真实 msg_id）。本地已有发送气泡时
-  // 不再追加新气泡，而是返回该气泡引用，由调用方把 echo 的 msg_id 回填上去，以便撤回。
+  // 不再追加新气泡，而是返回该气泡引用，由调用方把 echo 的 msg_id 回填上去。
   const echoMsgId = firstMsgIdStr(raw, ['msg_id', 'msgId', 'MsgId', 'MsgID', 'id', 'Id', 'ID', 'message_id', 'messageId'])
   if (outgoing && Number(raw.msg_type) === 1) {
     const text = String(raw.msg || '').trim()
@@ -709,7 +714,7 @@ const store = new Vuex.Store({
       const next = {
         ...cur,
         pending: false,
-        // ack 若带回真实 msg_id，则回填，便于刚发出的消息立即可撤回
+        // ack 若带回真实 msg_id，则回填
         msg_id: msg_id != null ? normalizeMsgIdForStore(msg_id) : cur.msg_id,
         // 若发送时已记录本地时间，ack 不覆盖；仅在缺失时补写
         timestamp: cur.timestamp != null ? cur.timestamp : (timestamp != null ? Number(timestamp) : cur.timestamp)
@@ -803,19 +808,6 @@ const store = new Vuex.Store({
       const key = friendId != null ? String(friendId) : ''
       if (!key) return
       Vue.set(state.messagesByFriend, key, [])
-    },
-    /** 撤回成功后从本地会话移除该消息气泡 */
-    removeMessageFromConversation (state, { friendId, rowId, msgId }) {
-      const key = String(friendId)
-      const list = state.messagesByFriend[key]
-      if (!list || !list.length) return
-      const nextList = list.filter(m => {
-        if (rowId != null && String(m.id) === String(rowId)) return false
-        if (msgId != null && m.msg_id != null && String(m.msg_id) === String(msgId)) return false
-        return true
-      })
-      if (nextList.length === list.length) return
-      Vue.set(state.messagesByFriend, key, nextList)
     },
     setFriendMessagesFromHistory (state, { friendId, messages }) {
       const key = String(friendId)

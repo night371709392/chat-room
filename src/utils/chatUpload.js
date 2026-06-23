@@ -126,6 +126,7 @@ export async function uploadChatAttachment (file, options = {}) {
   }
 
   const fileName = pickFileNameFromObject(data, file.name || '文件')
-  const msgId = pickMsgIdFromObject(data)
-  return { url, fileName, msgId }
+  // 兼容后端返回 snake_case(msg_id) / camelCase(msgId) / id
+  const msgId = data.msg_id || data.msgId || data.id || pickMsgIdFromObject(data)
+  return { url, fileName, msgId: msgId || null }
 }

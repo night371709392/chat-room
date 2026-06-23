@@ -200,70 +200,8 @@ export default {
     },
     onMenuAction (action) {
       this.closeMenu()
-      if (action === 'recall') {
-        this.recallMessage()
-        return
-      }
       // 复制 / 删除 逻辑后续实现
       void action
-    },
-    recallMessage () {
-      // 只能撤回自己发送的消息，后端同样会校验 sender_id，前端先拦一次
-      if (!this.item.outgoing) {
-        this.$toast('只能撤回自己发送的消息')
-        return
-      }
-      const msgId = this.item.msg_id != null ? String(this.item.msg_id).trim() : ''
-      if (!msgId) {
-        this.$toast('该消息暂不支持撤回')
-        return
-      }
-      // 只能撤回 2 分钟以内的消息
-      const ts = Number(this.item.timestamp)
-      const TWO_MIN = 2 * 60 * 1000
-      if (!Number.isFinite(ts) || ts <= 0 || Date.now() - ts > TWO_MIN) {
-        this.$toast('只能撤回 2 分钟以内的消息')
-        return
-      }
-      const convId = this.$store.state.currentChatFriendId
-      if (convId == null || convId === '') return
-
-      const isGroup = this.isGroupChat
-      const isFile = Number(this.item.msg_type) === 2 || Number(this.item.msg_type) === 3
-      let url
-      let data
-      if (isGroup) {
-        url = isFile ? '/api/group/recall/doc' : '/api/group/recall/msg'
-        data = { group_id: Number(convId), msg_id: msgId }
-      } else {
-        url = isFile ? '/api/chat/recall/doc' : '/api/chat/recall/msg'
-        data = { friend_id: Number(convId), msg_id: msgId }
-      }
-
-      this.$axios({ url, method: 'post', data }).then(res => {
-        const d = res && res.data
-        const ok =
-          d === 'success' ||
-          (d && typeof d === 'object' && (
-            d.error === 'success' || d.err === 'success' ||
-            d.message === 'success' || d.msg === 'success' ||
-            d.code === 0 || d.code === '0'
-          ))
-        if (ok) {
-          this.$store.commit('removeMessageFromConversation', {
-            friendId: convId,
-            rowId: this.item.id,
-            msgId
-          })
-          this.$toast.success ? this.$toast.success('已撤回') : this.$toast('已撤回')
-        } else {
-          const m = (d && (d.message || d.msg || d.error || d.err)) || '撤回失败'
-          this.$toast.fail ? this.$toast.fail(String(m)) : this.$toast(String(m))
-        }
-      }).catch(err => {
-        console.warn('[recallMessage]', err)
-        this.$toast.fail ? this.$toast.fail('网络异常，请稍后重试') : this.$toast('网络异常，请稍后重试')
-      })
     },
     onAvatarClick () {
       if (this.item.outgoing) return

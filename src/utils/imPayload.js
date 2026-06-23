@@ -17,7 +17,7 @@ export function toMsgIdStr (v) {
   if (typeof v === 'number') {
     if (!Number.isFinite(v)) return ''
     if (!Number.isSafeInteger(v)) {
-      console.warn('[chat] unsafe numeric msg_id received; exact recall requires backend to send string msg_id', v)
+      console.warn('[chat] unsafe numeric msg_id received', v)
     }
     return String(v)
   }
@@ -38,20 +38,29 @@ export function firstMsgIdStr (obj, keys) {
 
 export function toTimestampMs (v) {
   if (v === null || v === undefined || v === '') return NaN
+
   if (typeof v === 'number') {
     if (!Number.isFinite(v)) return NaN
     return v > 1e12 ? v : v * 1000
   }
+
   if (typeof v === 'string') {
     const s = v.trim()
     if (!s) return NaN
-    const n = Number(s)
-    if (Number.isFinite(n)) {
+
+    // 只有纯数字字符串才按时间戳处理
+    if (/^\d+$/.test(s)) {
+      const n = Number(s)
+      if (!Number.isFinite(n)) return NaN
       return n > 1e12 ? n : n * 1000
     }
-    const parsed = Date.parse(s)
+
+    // 其余情况按日期字符串解析（如 "2026-06-17 20:00:00"）
+    const normalized = s.replace(' ', 'T')
+    const parsed = Date.parse(normalized)
     return Number.isFinite(parsed) ? parsed : NaN
   }
+
   return NaN
 }
 
